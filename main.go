@@ -14,5 +14,5 @@ func checkEnv() {
 func main() {
 	checkEnv()
 
-	sampleScan()
+	sampleScan(25, 100) // zero count, scans per thread
 }

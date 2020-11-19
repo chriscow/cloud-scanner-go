@@ -1,12 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -88,74 +86,45 @@ func calculate(center Point, radius float64, scans int, lattice []Point, zeros [
 	wg.Done()
 }
 
-func sampleScan() {
+func sampleScan(zeroCount int, scansPerThread int) {
 	lattice, err := LoadLattice(Pinwheel, Vertices)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	primes, err := LoadZeros(Primes, 100, 1, false)
+	zeros, err := LoadZeros(Primes, 100, 1, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	threads := 8
+	threads := 8 // in case we are on the Mac
 
-	log.Println("os", runtime.GOOS)
 	if runtime.GOOS != "darwin" {
-		threads = 0
 		cpu, err := ghw.CPU()
-		if err != nil {
-			fmt.Printf("Error getting CPU info: %v", err)
-		} else {
-
-			for _, proc := range cpu.Processors {
-				fmt.Printf(" %v\n", proc)
-				for _, core := range proc.Cores {
-					fmt.Printf("  %v\n", core)
-				}
-				if len(proc.Capabilities) > 0 {
-					// pretty-print the (large) block of capability strings into rows
-					// of 6 capability strings
-					rows := int(math.Ceil(float64(len(proc.Capabilities)) / float64(6)))
-					for row := 1; row < rows; row = row + 1 {
-						rowStart := (row * 6) - 1
-						rowEnd := int(math.Min(float64(rowStart+6), float64(len(proc.Capabilities))))
-						rowElems := proc.Capabilities[rowStart:rowEnd]
-						capStr := strings.Join(rowElems, " ")
-						if row == 1 {
-							fmt.Printf("  capabilities: [%s\n", capStr)
-						} else if rowEnd < len(proc.Capabilities) {
-							fmt.Printf("                 %s\n", capStr)
-						} else {
-							fmt.Printf("                 %s]\n", capStr)
-						}
-					}
-				}
-			}
-
+		if err == nil {
 			threads = int(cpu.TotalThreads)
-			log.Println("total cores:", cpu.TotalCores, "total threads:", cpu.TotalThreads)
 		}
 	}
 
-	log.Println("threads:", threads)
-	scansPerThread := 100
-
 	center := Point{X: 0, Y: 0}
 	radius := 1.0
-	lattice.Filter(center, radius, primes.Values, 1)
+
+	ptcount := len(lattice.Points)
+	lattice.Filter(center, radius, zeros.Values[:zeroCount], 1)
 
 	wg := new(sync.WaitGroup)
 	wg.Add(threads)
 
 	start := time.Now()
 	for i := 0; i < threads; i++ {
-		go calculate(center, radius, scansPerThread, lattice.Points, primes.Values, wg)
+		go calculate(center, radius, scansPerThread, lattice.Points, zeros.Values[:zeroCount], wg)
 	}
 
 	wg.Wait()
 	elapsed := time.Since(start)
 	scansPerSec := float64(threads*scansPerThread) / elapsed.Seconds()
-	log.Println("elapsed", elapsed, scansPerSec, "scans/sec")
+
+	log.Println("Lattice:", lattice.LatticeType, lattice.VertexType, "points:", ptcount, "filtered:", len(lattice.Points))
+	log.Println("ZLine:", zeros.ZeroType, "zeros:", len(zeros.Values), "limited to:", zeroCount)
+	log.Println("Threads:", threads, "Elapsed", elapsed, scansPerSec, "scans/sec")
 }

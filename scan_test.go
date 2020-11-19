@@ -3,7 +3,6 @@ package main
 import (
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestCanLoadPinwheelVertices(t *testing.T) {
@@ -50,48 +49,19 @@ func TestAllAngles(t *testing.T) {
 }
 
 func TestCalc(t *testing.T) {
-	path := "../lattices/Pinwheel/Vertices/8192/points/"
-	lattice := LoadLattice(Pinwheel, Vertices)
+	lattice, err := LoadLattice(Pinwheel, Vertices)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeros, err := LoadZeros(Primes, 100, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	path = "../zeros/primes.txt"
-	zeros := LoadZ(path, 25)
-
-	center := point{}
+	center := Point{}
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	calculate(center, 1, 1, lattice, zeros, wg)
+	calculate(center, 1, 10, lattice.Points, zeros.Values, wg)
 	wg.Wait()
-}
-
-func TestStress(t *testing.T) {
-	path := "../lattices/Pinwheel/Vertices/8192/points/"
-	lattice := loadPoints(path)
-
-	path = "../zeros/primes.txt"
-	zeros := loadZeros(path, 25)
-
-	cores := 8
-	scansPerCore := 300
-
-	center := point{x: 0, y: 0}
-	radius := 1.0
-	lattice = filterLattice(center, radius, lattice, zeros, 1)
-
-	wg := new(sync.WaitGroup)
-	wg.Add(cores)
-
-	start := time.Now()
-	for i := 0; i < cores; i++ {
-		go calculate(center, radius, scansPerCore, lattice, zeros, wg)
-	}
-
-	wg.Wait()
-	elapsed := time.Since(start)
-	scansPerSec := float64(cores*scansPerCore) / elapsed.Seconds()
-	// log.Println("elapsed", elapsed, scansPerSec, "scans/sec")
-	if scansPerSec < 150 {
-		t.Log("expected > 150 scans/sec but got elapsed", elapsed, scansPerSec, "scans/sec")
-		t.Fail()
-	}
 }
