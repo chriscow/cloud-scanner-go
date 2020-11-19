@@ -47,7 +47,7 @@ func (z ZeroType) String() string {
 // LoadZeros returns the indicated zero type up to the maxValue, scaled by the
 // scale value.  The maxValue is before scaling.
 func LoadZeros(ztype ZeroType, maxValue float64, scale float64, neg bool) (*Zeros, error) {
-	path := "../zeros/" + ztype.String() + ".x1.0000"
+	path := "./data/zeros/" + ztype.String() + ".x1.0000"
 	values, err := loadLocal(path, maxValue, scale, neg)
 	if err != nil {
 		return nil, err

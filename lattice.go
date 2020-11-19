@@ -66,7 +66,7 @@ func (vt VertexType) String() string {
 func LoadLattice(ltype LatticeType, vtype VertexType) (*Lattice, error) {
 	lstr := strings.ToLower(ltype.String())
 	vstr := strings.ToLower(vtype.String())
-	path := "../lattices/" + lstr + "." + vstr + ".msgpack"
+	path := "./data/lattices/" + lstr + "." + vstr + ".msgpack"
 	l := &Lattice{}
 
 	b, err := ioutil.ReadFile(path)
