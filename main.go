@@ -225,11 +225,11 @@ func main() {
 	path = "../zeros/primes.txt"
 	zeros := loadZeros(path, 25)
 
-	cores := 8
+	threads := 8
 
 	log.Println("os", runtime.GOOS)
 	if runtime.GOOS != "darwin" {
-		cores = 0
+		threads = 0
 		cpu, err := ghw.CPU()
 		if err != nil {
 			fmt.Printf("Error getting CPU info: %v", err)
@@ -260,27 +260,27 @@ func main() {
 			}
 		}
 
-		cores = int(cpu.TotalCores) * int(cpu.TotalThreads)
-		log.Println("total cores:", cpu.TotalCores, "total threads:", cpu.TotalThreads, "logical cores:", cores)
+		threads = int(cpu.TotalThreads)
+		log.Println("total cores:", cpu.TotalCores, "total threads:", cpu.TotalThreads)
 	}
 
-	log.Println("cores:", cores)
-	scansPerCore := 300
+	log.Println("threads:", threads)
+	scansPerThread := 300
 
 	center := point{x: 0, y: 0}
 	radius := 1.0
 	lattice = filterLattice(center, radius, lattice, zeros, 1)
 
 	wg := new(sync.WaitGroup)
-	wg.Add(cores)
+	wg.Add(threads)
 
 	start := time.Now()
-	for i := 0; i < cores; i++ {
-		go calculate(center, radius, scansPerCore, lattice, zeros, wg)
+	for i := 0; i < threads; i++ {
+		go calculate(center, radius, scansPerThread, lattice, zeros, wg)
 	}
 
 	wg.Wait()
 	elapsed := time.Since(start)
-	scansPerSec := float64(cores*scansPerCore) / elapsed.Seconds()
+	scansPerSec := float64(threads*scansPerThread) / elapsed.Seconds()
 	log.Println("elapsed", elapsed, scansPerSec, "scans/sec")
 }
