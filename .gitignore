@@ -1,4 +1,5 @@
-.env 
-
+.env
+.secrets
+data
 *.msgpack
 *.x1.0000

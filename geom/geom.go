@@ -1,4 +1,4 @@
-package main
+package geom
 
 // Point is a 2D point struct
 type Point struct {
