@@ -9,5 +9,7 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/jaypipes/ghw v0.6.1
 	github.com/joho/godotenv v1.3.0
+	github.com/nsqio/go-nsq v1.0.8
 	github.com/shamaton/msgpack v1.1.1
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 )
