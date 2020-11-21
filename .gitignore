@@ -3,3 +3,4 @@
 data
 *.msgpack
 *.x1.0000
+*.json

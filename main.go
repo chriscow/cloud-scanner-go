@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -26,7 +28,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	primes, err := LoadZeros(Primes, 50, 1, false)
+	primes, err := LoadZeros(Primes, 100, 1, false)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,11 +44,19 @@ func main() {
 	ctx := context.Background()
 	cctx, cancel := context.WithCancel(ctx)
 
-	s := Create(cctx, zline, lattice, 1, 1)
+	scanCount := 1000 * maxWorkers
 
-	s.Start()
-	
-	startConsumer()
+	s := Create(cctx, zline, lattice, 1, 1, scanCount)
+
+	start := time.Now()
+	ch := s.Start()
+
+	<-ch
+
+	elapsed := time.Since(start)
+	scansPerSec := float64(scanCount) / elapsed.Seconds()
+
+	log.Println("Threads:", runtime.GOMAXPROCS(0), "calcs:", scanCount, "Elapsed", elapsed, scansPerSec, "scans/sec")
 
 	cancel()
 }

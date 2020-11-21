@@ -7,9 +7,8 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"sync"
 
-	"github.com/nsqio/go-nsq"
-	"github.com/shamaton/msgpack"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -20,6 +19,7 @@ const (
 var (
 	maxWorkers = runtime.GOMAXPROCS(0)
 	sem        = semaphore.NewWeighted(int64(maxWorkers))
+	distances  = []float64{.5, 1, 2, 4, 8, 16, 32, 64, math.MaxFloat64}
 )
 
 // Session is a ...
@@ -30,6 +30,7 @@ type Session struct {
 	Radius        float64
 	DistanceLimit float64
 	BucketCount   int
+	scanCount     int
 	ctx           context.Context
 }
 
@@ -54,18 +55,19 @@ func (r Result) String() string {
 }
 
 // Create and initialize a new Session
-func Create(ctx context.Context, zline *ZLine, lattice *Lattice, radius, distanceLimit float64) *Session {
+func Create(ctx context.Context, zline *ZLine, lattice *Lattice, radius, distanceLimit float64, scanCount int) *Session {
 	return &Session{
 		ZLine:         zline,
 		Lattice:       lattice,
 		Radius:        1,
 		DistanceLimit: 1,
+		scanCount:     scanCount,
 		ctx:           ctx,
 	}
 }
 
 // Start starts scanning using the session's parameters
-func (s *Session) Start() {
+func (s *Session) Start() <-chan Result {
 
 	// threads := 8 // in case we are on the Mac
 
@@ -76,47 +78,42 @@ func (s *Session) Start() {
 	// 	}
 	// }
 
+	resCh := make(chan Result, maxWorkers)
 	center := s.ZLine.Origin
 	radius := s.Radius
 
 	maxZero := s.ZLine.MaxZeroVal()
 
+	countPerProc := s.scanCount / maxWorkers
+
 	// ptcount := len(s.Lattice.Points) // keep the pre-filtered point count for logging
 	lattice := s.Lattice.Filter(center, radius, maxZero, s.DistanceLimit)
 
-	ctx := context.TODO()
+	log.Println("zeros:", len(s.ZLine.Zeros[0].Values), "maxZero:", maxZero, "lattice:", len(lattice))
 
 	go func() {
-		for {
-			// When maxWorkers goroutines are in flight, Acquire blocks until one of the
-			// workers finishes.
-			if err := sem.Acquire(ctx, 1); err != nil {
+		defer close(resCh)
+
+		wg := &sync.WaitGroup{}
+		wg.Add(maxWorkers)
+
+		for i := 0; i < maxWorkers; i++ {
+			// When maxWorkers goroutines are in flight,
+			// Acquire blocks until one of the workers finishes.
+			if err := sem.Acquire(s.ctx, 1); err != nil {
 				log.Printf("Failed to acquire semaphore: %v", err)
 				break
 			}
-			go func() {
-				// Instantiate a message producer.
-				config := nsq.NewConfig()
-				producer, err := nsq.NewProducer("localhost:4150", config)
-				if err != nil {
-					log.Fatal("failed to create NSQ producer", err)
-				}
-				defer producer.Stop()
-
-				origins := randOrigins(-radius, radius, center, 1000)
+			go func(i int) {
+				defer sem.Release(1)
+				log.Println("job", i)
+				origins := randOrigins(-radius, radius, center, countPerProc)
 
 				// need the same origin for all zeros
 				for _, origin := range origins {
 					zero := s.ZLine.Zeros[0]
-					res := calculate(origin, lattice, zero, s.Lattice.Parameters)
-					body, err := msgpack.Encode(res)
-					if err != nil {
-						log.Fatal("failed to encode response", res.String(), err)
-					}
+					calculate(origin, lattice, zero, s.Lattice.Parameters)
 
-					if err := producer.Publish(topic, body); err != nil {
-						log.Fatal("failed to publish result message", err)
-					}
 					// TODO: if len(s.ZLine.Zeros) == 2 { do a diff result }
 
 					select {
@@ -125,7 +122,9 @@ func (s *Session) Start() {
 					default:
 					}
 				}
-			}()
+				log.Println("job", i, "done")
+				wg.Done()
+			}(i)
 
 			select {
 			case <-s.ctx.Done():
@@ -134,16 +133,11 @@ func (s *Session) Start() {
 			default:
 			}
 		}
+
+		wg.Wait()
 	}()
 
-	// elapsed := time.Since(start)
-	// scansPerSec := float64(threads*scansPerThread) / elapsed.Seconds()
-
-	// log.Println("Lattice:", s.Lattice.LatticeType, s.Lattice.VertexType, "points:", ptcount, "filtered:", len(points))
-	// for _, zeros := range s.ZLine.Zeros {
-	// 	log.Println("ZLine:", zeros.ZeroType, "zeros count:", len(zeros.Values), "max zero:", maxZero)
-	// }
-	// log.Println("Threads:", threads, "Elapsed", elapsed, scansPerSec, "scans/sec")
+	return resCh
 }
 
 func randOrigins(min, max float64, center Point, count int) []Point {
