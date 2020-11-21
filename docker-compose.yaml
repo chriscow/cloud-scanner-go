@@ -23,3 +23,8 @@ services:
       - nsqlookupd  
     ports:
       - "4171"
+  scanner:
+    image: golang
+    command: /bin/bash
+    depends_on:
+      - nsqlookupd
