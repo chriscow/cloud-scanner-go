@@ -102,11 +102,12 @@ func loadLocal(path string, maxValue float64, scale float64, neg bool) ([]float6
 		return nil, err
 	}
 
-	if err := json.Unmarshal(b, &zeros); err != nil {
+	data := make([]float64, 0, 256)
+	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
 
-	for _, value := range zeros {
+	for _, value := range data {
 
 		if value > maxValue {
 			break
