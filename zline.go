@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"math"
 	"os"
+	"strings"
 )
 
 // ZeroType enumeration defines what type of numbers the values represent
@@ -59,6 +61,49 @@ func (z ZeroType) String() string {
 	}[z]
 }
 
+// GetZType returns a ZeroType from a string representation
+func (z ZeroType) GetZType(name string) (ZeroType, error) {
+	switch strings.ToLower(name) {
+	case "primes", "prime":
+		return Primes, nil
+	case "sixnfives", "sixn5s", "6n5s", "sixnfive", "sixn5", "6n5":
+		return SixNFives, nil
+	case "sixn", "6n":
+		return SixN, nil
+	case "zeta", "zetas":
+		return Zeta, nil
+	case "zetanorm1":
+		return ZetaNorm1, nil
+	case "zetanorm2":
+		return ZetaNorm2, nil
+	case "comp1", "comp1s":
+		return Comp1, nil
+	case "comp2", "comp2s":
+		return Comp2, nil
+	default:
+		return 0, errors.New("Unknown zero type")
+	}
+}
+
+// NewZLine creates and initializes a zline
+func NewZLine(origin Point, zeros []ZeroType, maxValue, scale float64, neg bool) (*ZLine, error) {
+	zline := &ZLine{
+		Origin: origin,
+		Zeros:  make([]*Zeros, 0),
+	}
+
+	for _, ztype := range zeros {
+		zero, err := LoadZeros(ztype, maxValue, scale, neg)
+		if err != nil {
+			return nil, err
+		}
+
+		zline.Zeros = append(zline.Zeros, zero)
+	}
+
+	return zline, nil
+}
+
 // MaxZeroVal returns the largest zero value on the ZLine
 func (z *ZLine) MaxZeroVal() float64 {
 	var maxZero float64
@@ -73,7 +118,7 @@ func (z *ZLine) MaxZeroVal() float64 {
 // LoadZeros loads the numeric values from a data file and returns the indicated
 // numeric type up to the maxValue, scaled by the scale value.
 // The maxValue is the maximum value loaded before scaling.
-func LoadZeros(ztype ZeroType, maxValue float64, scale float64, neg bool) (*Zeros, error) {
+func LoadZeros(ztype ZeroType, maxValue, scale float64, neg bool) (*Zeros, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)

@@ -1,13 +1,11 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
-	"runtime"
-	"time"
+	"os"
 
 	"github.com/joho/godotenv"
+	"github.com/urfave/cli/v2"
 )
 
 const bucketCount = 3600
@@ -18,45 +16,83 @@ func checkEnv() {
 }
 
 func main() {
-	checkEnv()
+	app := &cli.App{
+		Name:        "reticle",
+		Usage:       "app usage",
+		UsageText:   "app usage text",
+		ArgsUsage:   "app argsusage",
+		Description: "app description",
+	}
 
-	ips := getLocalIPs()
-	fmt.Println(ips)
+	app.Flags = []cli.Flag{
+		&cli.BoolFlag{
+			Name:  "verbose, v",
+			Usage: "Enable detailed output",
+		},
+	}
 
-	lattice, err := NewLattice(Pinwheel, Vertices)
+	// ZLine         *ZLine
+	// Lattice       *Lattice
+	// Radius        float64
+	// DistanceLimit float64
+	// BucketCount   int
+	// scanCount     int
+
+	app.Commands = []*cli.Command{
+		{
+			Name:        "scan",
+			Usage:       "Scans a lattice either as a service or directly via cli",
+			UsageText:   "scan-usage-text",
+			ArgsUsage:   "lattice zero1 [zero2...]",
+			Description: "scan-description",
+
+			Subcommands: []*cli.Command{
+				{
+					Name:      "radius",
+					Usage:     "scan a lattice at random points from the origin within a radius",
+					ArgsUsage: "lattice zero1 [zero2]",
+					Action:    scanRadiusCmd,
+					Flags: []cli.Flag{
+
+						&cli.BoolFlag{
+							Name:  "service",
+							Usage: "Run as a service",
+						},
+
+						&cli.Float64SliceFlag{
+							Name:        "origin",
+							DefaultText: "0 0",
+							Value:       cli.NewFloat64Slice(0, 0),
+						},
+
+						&cli.Int64Flag{
+							Name:  "radius",
+							Value: 1,
+						},
+
+						&cli.Float64SliceFlag{
+							Name:  "distance-limits",
+							Usage: "One or more distance limits",
+							Value: cli.NewFloat64Slice(1),
+						},
+
+						&cli.Int64Flag{
+							Name:  "buckets",
+							Value: 3600,
+						},
+
+						&cli.Int64Flag{
+							Name:  "scans",
+							Value: 1000,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	primes, err := LoadZeros(Primes, 100, 1, false)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	zeros := []*Zeros{primes}
-
-	zline := &ZLine{
-		Origin: Point{X: 0, Y: 0},
-		Angle:  0,
-		Zeros:  zeros,
-	}
-
-	ctx := context.Background()
-	cctx, cancel := context.WithCancel(ctx)
-
-	scanCount := 1000 * maxWorkers
-
-	s := Create(cctx, zline, lattice, 1, 1, scanCount)
-
-	start := time.Now()
-	ch := s.Start()
-
-	<-ch
-
-	elapsed := time.Since(start)
-	scansPerSec := float64(scanCount) / elapsed.Seconds()
-
-	log.Println("Threads:", runtime.GOMAXPROCS(0), "calcs:", scanCount, "Elapsed", elapsed, scansPerSec, "scans/sec")
-
-	cancel()
 }

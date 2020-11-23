@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"time"
+	"runtime"
 	"testing"
 )
 
@@ -42,4 +45,50 @@ func TestCalc(t *testing.T) {
 	t.Log(res)
 	t.Log("need to test result")
 	t.Fail()
+}
+
+func TestPerf(t *testing.T) {
+	checkEnv()
+
+	ips := getLocalIPs()
+	t.Log(ips)
+
+	lattice, err := NewLattice(Pinwheel, Vertices)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+	}
+
+	primes, err := LoadZeros(Primes, 100, 1, false)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+	}
+
+	zeros := []*Zeros{primes}
+
+	zline := &ZLine{
+		Origin: Point{X: 0, Y: 0},
+		Angle:  0,
+		Zeros:  zeros,
+	}
+
+	ctx := context.Background()
+	cctx, cancel := context.WithCancel(ctx)
+
+	scanCount := 1000 * maxWorkers
+
+	s := Create(cctx, zline, lattice, 1, 1, scanCount)
+
+	start := time.Now()
+	ch := s.Start()
+
+	<-ch
+
+	elapsed := time.Since(start)
+	scansPerSec := float64(scanCount) / elapsed.Seconds()
+
+	t.Log("Threads:", runtime.GOMAXPROCS(0), "calcs:", scanCount, "Elapsed", elapsed, scansPerSec, "scans/sec")
+
+	cancel()
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"math"
@@ -39,10 +40,27 @@ const (
 	Penrose
 )
 
+// String returns the stringified version of a LatticeType
 func (lt LatticeType) String() string {
 	return [...]string{
 		"Pinwheel", "Fibonacci", "Grid", "Penrose",
 	}[lt]
+}
+
+// GetLType returns the lattice type from its string representation
+func (lt LatticeType) GetLType(name string) (LatticeType, error) {
+	switch strings.ToLower(name) {
+	case "pinwheel":
+		return Pinwheel, nil
+	case "fibonacci":
+		return Fibonacci, nil
+	case "grid":
+		return Grid, nil
+	case "penrose":
+		return Penrose, nil
+	default:
+		return 0, errors.New("Unknown lattice type")
+	}
 }
 
 const (
