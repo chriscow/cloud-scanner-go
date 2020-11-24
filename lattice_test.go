@@ -18,7 +18,7 @@ func TestCanLoadPinwheelVertices(t *testing.T) {
 		t.Fail()
 	}
 	if len(lattice.Points) != 277845 {
-		t.Log("expected pinwheel verticies to have 277845 points but it had", len(lattice.Points))
+		t.Log("expected pinwheel verticies to have 277845 Points but it had", len(lattice.Points))
 		t.Fail()
 	}
 }

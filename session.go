@@ -2,31 +2,31 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log"
 )
 
 // Session is a ...
 type Session struct {
-	ID             int64
-	ZLine          *ZLine
-	Lattice        *Lattice
-	Radius         float64
-	DistanceLimits []float64
-	BucketCount    int
-	scanCount      int
-	ctx            context.Context
+	ID            int64
+	ZLine         *ZLine
+	Lattice       *Lattice
+	Radius        float64
+	DistanceLimit float64
+	BucketCount   int
+	scanCount     int
+	ctx           context.Context
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(ctx context.Context, zline *ZLine, lattice *Lattice, radius float64, distanceLimits []float64, scanCount int) *Session {
+func NewSession(ctx context.Context, zline *ZLine, lattice *Lattice, radius, distanceLimit float64, scanCount, bucketCount int) *Session {
 	return &Session{
-		ZLine:          zline,
-		Lattice:        lattice,
-		Radius:         1,
-		DistanceLimits: distanceLimits,
-		scanCount:      scanCount,
-		ctx:            ctx,
+		ZLine:         zline,
+		Lattice:       lattice,
+		Radius:        1,
+		DistanceLimit: distanceLimit,
+		BucketCount:   bucketCount,
+		scanCount:     scanCount,
+		ctx:           ctx,
 	}
 }
 
@@ -50,12 +50,9 @@ func (s *Session) Start() (<-chan Result, error) {
 
 	countPerProc := s.scanCount / maxWorkers
 
-	// ptcount := len(s.Lattice.Points) // keep the pre-filtered point count for logging
-	if len(s.DistanceLimits) > 1 {
-		return nil, errors.New("Only a single distance limit is currently supported")
-	}
+	// ptcount := len(s.Lattice.Points) // keep the pre-filtered Vector2 count for logging
 
-	limit := s.DistanceLimits[0]
+	limit := s.DistanceLimit
 
 	lattice := s.Lattice.Filter(center, radius, maxZero, limit)
 
@@ -80,11 +77,11 @@ func (s *Session) Start() (<-chan Result, error) {
 					// need the same origin for all zeros
 					for _, origin := range origins {
 						zero := s.ZLine.Zeros[0]
-						result1 := calculate(origin, lattice, zero, s.Lattice.Parameters, limit)
+						result1 := calculate(origin, lattice, zero, s.Lattice.Parameters, limit, s.BucketCount)
 						resCh <- result1
 
 						if len(s.ZLine.Zeros) == 2 {
-							result2 := calculate(origin, lattice, zero, s.Lattice.Parameters, limit)
+							result2 := calculate(origin, lattice, zero, s.Lattice.Parameters, limit, s.BucketCount)
 							resCh <- result2
 
 							// TODO: create a diff result

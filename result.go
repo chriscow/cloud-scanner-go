@@ -10,7 +10,7 @@ import (
 // Result holds the data from a single scan and is serialized with MessagePack
 type Result struct {
 	SessionID     int64
-	Origin        Point
+	Origin        Vector2
 	ZeroType      ZeroType
 	ZerosCount    int
 	ZerosHit      int

@@ -48,7 +48,7 @@ type Zeros struct {
 // ZLine is a number line in space starting at the specified origin and rotated
 // about the origin by the specified angle in degrees
 type ZLine struct {
-	Origin Point
+	Origin Vector2
 	Angle  float64
 	Zeros  []*Zeros
 }
@@ -86,7 +86,7 @@ func (z ZeroType) GetZType(name string) (ZeroType, error) {
 }
 
 // NewZLine creates and initializes a zline
-func NewZLine(origin Point, zeros []ZeroType, maxValue, scale float64, neg bool) (*ZLine, error) {
+func NewZLine(origin Vector2, zeros []ZeroType, maxValue, scale float64, neg bool) (*ZLine, error) {
 	zline := &ZLine{
 		Origin: origin,
 		Zeros:  make([]*Zeros, 0),

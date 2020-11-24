@@ -4,7 +4,9 @@ go 1.15
 
 require (
 	cloud.google.com/go/storage v1.12.0 // indirect
+	github.com/atedja/go-vector v0.0.0-20170318030839-a887ff7bead7
 	github.com/aws/aws-sdk-go v1.35.31
+	github.com/gocarina/gocsv v0.0.0-20201103164230-b291445e0dd2
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/jaypipes/ghw v0.6.1
