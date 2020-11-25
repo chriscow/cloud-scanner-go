@@ -2,115 +2,147 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math"
+	"runtime"
+	"strconv"
+	"sync"
+	"time"
 )
 
-// Session is a ...
+// Session is a distinct scan of random points within a radius from the ZLine
+// origin.
 type Session struct {
-	ID            int64
+	ID            int
 	ZLine         *ZLine
 	Lattice       *Lattice
 	Radius        float64
 	DistanceLimit float64
 	BucketCount   int
-	scanCount     int
+	ScansPerSec   int
+	TotalTime     time.Duration
+	ProcCount     int
+	scansReq      int
+	minScore      float64
+	wg            *sync.WaitGroup
 	ctx           context.Context
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(ctx context.Context, zline *ZLine, lattice *Lattice, radius, distanceLimit float64, scanCount, bucketCount int) *Session {
-	return &Session{
+func NewSession(ctx context.Context, id int, zline *ZLine, lattice *Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+	s := &Session{
+		ID:            id,
 		ZLine:         zline,
 		Lattice:       lattice,
 		Radius:        1,
 		DistanceLimit: distanceLimit,
 		BucketCount:   bucketCount,
-		scanCount:     scanCount,
+		ProcCount:     runtime.GOMAXPROCS(0),
+		minScore:      minScore,
+		scansReq:      scansReq,
 		ctx:           ctx,
+		wg:            &sync.WaitGroup{},
+	}
+
+	s.wg.Add(s.ProcCount)
+	return s
+}
+
+// createResult creates a regular `zeros hit` result and scores it on the
+// percentage of zeros hit to total zeros
+func (s *Session) createResult(origin Vector2, ztype ZeroType, zcount int, bh bucketHits) Result {
+	if origin.X == 0 && origin.Y == 0 {
+		msg := fmt.Sprint("[createResult] received 0,0 origin")
+		log.Println(msg)
+	}
+
+	// trim off extranious decimal places since theta's precision is
+	// dependent on the number of buckets.  x2 just in case
+	places := math.Pow10(len(strconv.Itoa(s.BucketCount)) * 2)
+	score := math.Round(float64(bh.Hits)/float64(zcount)*places) / places
+	theta := math.Round(bh.Theta*places) / places
+
+	return Result{
+		SessionID:  s.ID,
+		Origin:     origin,
+		ZeroType:   ztype,
+		ZerosCount: zcount,
+		ZerosHit:   bh.Hits,
+		BestTheta:  theta,
+		BestBucket: bh.Bucket,
+		Score:      score,
 	}
 }
 
 // Start starts scanning using the session's parameters
 func (s *Session) Start() (<-chan Result, error) {
 
-	// threads := 8 // in case we are on the Mac
-
-	// if runtime.GOOS != "darwin" {
-	// 	cpu, err := ghw.CPU()
-	// 	if err == nil {
-	// 		threads = int(cpu.TotalThreads)
-	// 	}
-	// }
-
-	resCh := make(chan Result, maxWorkers)
-	center := s.ZLine.Origin
-	radius := s.Radius
+	resCh := make(chan Result, s.scansReq)
 
 	maxZero := s.ZLine.MaxZeroVal()
+	filtered := s.Lattice.Filter(s.ZLine.Origin, s.Radius, maxZero, s.DistanceLimit)
 
-	countPerProc := s.scanCount / maxWorkers
-
-	// ptcount := len(s.Lattice.Points) // keep the pre-filtered Vector2 count for logging
-
-	limit := s.DistanceLimit
-
-	lattice := s.Lattice.Filter(center, radius, maxZero, limit)
-
-	log.Println("zeros:", len(s.ZLine.Zeros[0].Values), "maxZero:", maxZero, "lattice:", len(lattice))
+	start := time.Now()
 
 	go func() {
 		defer close(resCh)
 
-		for {
-			for i := 0; i < maxWorkers; i++ {
-				// When maxWorkers goroutines are in flight,
-				// Acquire blocks until one of the workers finishes.
-				if err := sem.Acquire(s.ctx, 1); err != nil {
-					log.Printf("Failed to acquire semaphore: %v", err)
-					break
-				}
-				go func(i int) {
-					defer sem.Release(1)
-					log.Println("job", i)
-					origins := randOrigins(-radius, radius, center, countPerProc)
-
-					// need the same origin for all zeros
-					for _, origin := range origins {
-						zero := s.ZLine.Zeros[0]
-						result1 := calculate(origin, lattice, zero, s.Lattice.Parameters, limit, s.BucketCount)
-						resCh <- result1
-
-						if len(s.ZLine.Zeros) == 2 {
-							result2 := calculate(origin, lattice, zero, s.Lattice.Parameters, limit, s.BucketCount)
-							resCh <- result2
-
-							// TODO: create a diff result
-							log.Printf("TODO: do a diff result")
-						}
-
-						// TODO: handle more zeros if there are any
-						if len(s.ZLine.Zeros) > 2 {
-							log.Printf("TODO: handle remaining zeros or reject request")
-						}
-
-						select {
-						case <-s.ctx.Done():
-							return
-						default:
-						}
-					}
-					log.Println("job", i, "done")
-				}(i)
-
-				select {
-				case <-s.ctx.Done():
-					log.Println("canceled")
-					return
-				default:
-				}
-			}
+		for i := 0; i < s.ProcCount; i++ {
+			go s.scanJob(i, filtered, resCh)
 		}
+
+		s.wg.Wait()
+
+		elapsed := time.Since(start)
+		s.TotalTime = elapsed
+		s.ScansPerSec = int(math.Round(float64(s.scansReq) / elapsed.Seconds()))
 	}()
 
 	return resCh, nil
+}
+
+func (s *Session) scanJob(id int, filtered []Vector2, resCh chan<- Result) {
+
+	count := s.scansReq / s.ProcCount
+	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
+	log.Println("[Job:", id, "] started scanning", count, "origins")
+
+	// need the same origin for all zeros in the zline so we
+	// can do a diff result
+	for _, origin := range origins {
+
+		zero := s.ZLine.Zeros[0]
+
+		buckets := calculate(origin, filtered, zero.Values, s.Lattice.Parameters,
+			s.DistanceLimit, s.BucketCount)
+
+		best := getBestBuckets(buckets)
+		for _, hits := range best {
+			result := s.createResult(origin, zero.ZeroType, zero.Count, hits)
+			if result.Score >= s.minScore {
+				resCh <- result
+			}
+		}
+
+		// if len(s.ZLine.Zeros) == 2 {
+		// 	// TODO: create a diff result
+		// 	}
+		// }
+
+		// TODO: handle more zeros if there are any
+		// if len(s.ZLine.Zeros) > 2 {
+		// 	log.Fatal("TODO: handle remaining zeros or reject request")
+		// }
+
+		// check if we have been canceled
+		select {
+		case <-s.ctx.Done():
+			break
+		default:
+		}
+	}
+
+	s.wg.Done()
+	// log.Println("[Job:", id, "] done")
 }

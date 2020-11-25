@@ -47,33 +47,17 @@ func allAngles(lattice, origin Vector2, zero, limit float64) (theta1, theta2 flo
 	return
 }
 
-func getBestBucket(buckets [][]int) (bestBucket, zerosHit int) {
-	for i, bucket := range buckets {
-		var sum int
-		for _, hit := range bucket {
-			sum += hit
-		}
-
-		if sum >= zerosHit {
-			zerosHit = sum
-			bestBucket = i
-		}
-	}
-
-	return bestBucket, zerosHit
-}
-
 // calculate a single result
-func calculate(origin Vector2, lattice []Vector2, zeros *Zeros, latticeParams interface{}, limit float64, bucketCount int) Result {
+func calculate(origin Vector2, lattice []Vector2, zeros []float64, latticeParams interface{}, limit float64, bucketCount int) [][]int {
 	buckets := make([][]int, bucketCount)
 	for i := range buckets {
-		buckets[i] = make([]int, zeros.Count)
+		buckets[i] = make([]int, len(zeros))
 	}
 
 	degPerBucket := 360.0 / float64(len(buckets))
 
 	for _, Vector2 := range lattice {
-		for i, zero := range zeros.Values {
+		for i, zero := range zeros {
 			theta1, theta2 := allAngles(Vector2, origin, zero, limit)
 
 			if math.IsNaN(theta1) || math.IsNaN(theta2) {
@@ -94,18 +78,7 @@ func calculate(origin Vector2, lattice []Vector2, zeros *Zeros, latticeParams in
 		}
 	}
 
-	bestBucket, zerosHit := getBestBucket(buckets)
-	bestTheta := float64(bestBucket) * degPerBucket
-
-	return Result{
-		Origin:        origin,
-		ZeroType:      zeros.ZeroType,
-		ZerosCount:    zeros.Count,
-		ZerosHit:      zerosHit,
-		BestTheta:     bestTheta,
-		BestBucket:    bestBucket,
-		LatticeParams: latticeParams,
-	}
+	return buckets
 }
 
 func calculateTest(origin Vector2, lattice []Vector2, zeros *Zeros, latticeParams interface{}, limit float64, bucketCount int) [][]int {

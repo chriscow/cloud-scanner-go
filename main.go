@@ -5,18 +5,14 @@ import (
 	"log"
 	"math"
 	"os"
-	"runtime"
 
 	"github.com/gocarina/gocsv"
 	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/semaphore"
 )
 
 var (
-	maxWorkers = runtime.GOMAXPROCS(0)
-	sem        = semaphore.NewWeighted(int64(maxWorkers))
-	distances  = []float64{.5, 1, 2, 4, 8, 16, 32, 64, math.MaxFloat64}
+	distances = []float64{.5, 1, 2, 4, 8, 16, 32, 64, math.MaxFloat64}
 )
 
 func checkEnv() {
@@ -24,7 +20,7 @@ func checkEnv() {
 
 }
 
-func real_main() {
+func main() {
 
 	app := &cli.App{
 		Name:        "reticle",
@@ -66,6 +62,12 @@ func real_main() {
 		},
 
 		&cli.Float64Flag{
+			Name:  "max-value",
+			Usage: "Limit the zeros so they don't exceed this value (scans are quicker)",
+			Value: 100,
+		},
+
+		&cli.Float64Flag{
 			Name:  "distance-limit",
 			Usage: "Only consider hits within this distance from the zline",
 			Value: 1,
@@ -78,7 +80,13 @@ func real_main() {
 
 		&cli.IntFlag{
 			Name:  "scans",
-			Value: 1000,
+			Value: 5000,
+		},
+
+		&cli.Float64Flag{
+			Name:  "min-score",
+			Usage: "Filter scores less than this float value (.3 == filter scores < 30%",
+			Value: 0,
 		},
 	}
 
@@ -108,6 +116,7 @@ func real_main() {
 	}
 }
 
+// the `top1000` csv file from Unity Reticle
 // x,y,limit,theta,hits,ztype,zcount,zscale,score,params
 type scanTestArg struct {
 	X          float64 `csv:"x"`
@@ -128,7 +137,7 @@ func (s scanTestArg) String() string {
 		" scalar:", s.Scalar, " score:", s.Score)
 }
 
-func main() {
+func compareTest() {
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -153,82 +162,24 @@ func main() {
 
 	maxZero := zeros.Values[len(zeros.Values)-1]
 	points := lattice.Filter(Vector2{}, 1, maxZero, testargs[0].Limit)
-	for i, arg := range testargs {
+
+	for line, arg := range testargs {
 		origin := Vector2{X: arg.X, Y: arg.Y}
-		result := calculate(origin, points, zeros, nil, arg.Limit, arg.NumBuckets)
-
-		degPerBucket := 360.0 / float64(arg.NumBuckets)
-		bestBucket := int(math.Floor(result.BestTheta / degPerBucket))
-		if result.BestBucket != bestBucket || result.ZerosHit != arg.Hits || result.BestTheta != arg.Theta {
-			log.Println("mismatch on line", i, "at", origin)
-			log.Println("\tgolang", result)
-			log.Println("\treticle", arg)
-
-			buckets := calculateTest(origin, points, zeros, nil, arg.Limit,
-				arg.NumBuckets)
-
-			var zerosHit, bestBucket, count int
-			// compare what the bucket contains that arg says is the best
-			compare := buckets[int(arg.Theta)]
-			for i := range compare {
-				if compare[i] > 0 {
-					count++
-					log.Println("+", zeros.Values[i], "compare")
-				} else {
-					log.Println("-", zeros.Values[i], "compare")
-				}
+		buckets := calculate(origin, points, zeros.Values, nil, arg.Limit, arg.NumBuckets)
+		best := getBestBuckets(buckets)
+		if len(best) > 1 {
+			log.Println("multiple results:", len(best))
+			for _, result := range best {
+				log.Println("bucket: ", result.Bucket, " hits: ", result.Hits, " theta:", result.Theta)
 			}
+		}
 
-			log.Println("------ compare count:", count, "arg count:", arg.Hits)
-
-			zerosHit = 0
-			bestBucket = 0
-			count = 0
-
-			for i, bucket := range buckets {
-				var sum int
-				for _, hit := range bucket {
-					sum += hit
-				}
-
-				if sum > zerosHit {
-					zerosHit = sum
-					bestBucket = i
-				}
+		for _, result := range best {
+			if result.Hits != arg.Hits || result.Theta != arg.Theta {
+				log.Println("mismatch on line", line, "at", origin, "bucket", arg.Theta)
+				log.Println("\tgolang", result)
+				log.Println("\treticle", arg)
 			}
-
-			if zerosHit != result.ZerosHit {
-				panic("what the?")
-			}
-
-			best := buckets[bestBucket]
-			for i := range best {
-				if best[i] > 0 {
-					count++
-					log.Println("+", zeros.Values[i], "best")
-				} else {
-					log.Println("-", zeros.Values[i], "best")
-				}
-			}
-
-			log.Println("------ best count:", count)
-
-			log.Fatal()
 		}
 	}
-
-	// buckets := calculateTest(origin, lattice.Points, zeros, nil, 1, 3600)
-	// degPerBucket := 360.0 / float64(len(buckets))
-	// bestBucket, zerosHit := getBestBucket(buckets)
-	// bestTheta := float64(bestBucket) * degPerBucket
-
-	// log.Println("best bucket:", bestBucket, "zeros hit:", zerosHit, "best theta:", bestTheta)
-	// for i := range buckets[bestBucket] {
-	// 	zero := zeros.Values[i]
-	// 	if buckets[bestBucket][i] > 0 {
-	// 		log.Println("+", zero)
-	// 	} else {
-	// 		log.Println("-", zero)
-	// 	}
-	// }
 }
