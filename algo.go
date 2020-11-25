@@ -54,7 +54,7 @@ func getBestBucket(buckets [][]int) (bestBucket, zerosHit int) {
 			sum += hit
 		}
 
-		if sum > zerosHit {
+		if sum >= zerosHit {
 			zerosHit = sum
 			bestBucket = i
 		}

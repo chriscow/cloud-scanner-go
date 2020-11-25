@@ -16,6 +16,7 @@ type Result struct {
 	ZerosHit      int
 	BestTheta     float64
 	BestBucket    int
+	ZeroIDs       []int
 	AvgParity     float64
 	LatticeParams interface{}
 	Score         float64

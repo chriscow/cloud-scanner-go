@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"os"
@@ -109,16 +110,22 @@ func real_main() {
 
 // x,y,limit,theta,hits,ztype,zcount,zscale,score,params
 type scanTestArg struct {
-	X         float64 `csv:"x"`
-	Y         float64 `csv:"y"`
-	Limit     float64 `csv:"limit"`
-	Buckets   int     `csv:"buckets"`
-	Theta     float64 `csv:"theta"`
-	Hits      int     `csv:"hits"`
-	ZeroType  string  `csv:"ztype"`
-	ZeroCount int     `csv:"zcount"`
-	Scalar    float64 `csv:"zscale"`
-	Score     float64 `csv:"score"`
+	X          float64 `csv:"x"`
+	Y          float64 `csv:"y"`
+	Limit      float64 `csv:"limit"`
+	NumBuckets int     `csv:"buckets"`
+	Theta      float64 `csv:"theta"`
+	Hits       int     `csv:"hits"`
+	ZeroType   string  `csv:"ztype"`
+	ZeroCount  int     `csv:"zcount"`
+	Scalar     float64 `csv:"zscale"`
+	Score      float64 `csv:"score"`
+}
+
+func (s scanTestArg) String() string {
+	return fmt.Sprint("origin:", s.X, s.Y, " limit:", s.Limit, " buckets:", s.NumBuckets,
+		" theta:", s.Theta, " hits:", s.Hits, " ztype:", s.ZeroType, " zcount:", s.ZeroCount,
+		" scalar:", s.Scalar, " score:", s.Score)
 }
 
 func main() {
@@ -148,14 +155,65 @@ func main() {
 	points := lattice.Filter(Vector2{}, 1, maxZero, testargs[0].Limit)
 	for i, arg := range testargs {
 		origin := Vector2{X: arg.X, Y: arg.Y}
-		result := calculate(origin, points, zeros, nil, arg.Limit, arg.Buckets)
+		result := calculate(origin, points, zeros, nil, arg.Limit, arg.NumBuckets)
 
-		degPerBucket := 360.0 / float64(arg.Buckets)
+		degPerBucket := 360.0 / float64(arg.NumBuckets)
 		bestBucket := int(math.Floor(result.BestTheta / degPerBucket))
 		if result.BestBucket != bestBucket || result.ZerosHit != arg.Hits || result.BestTheta != arg.Theta {
 			log.Println("mismatch on line", i, "at", origin)
 			log.Println("\tgolang", result)
 			log.Println("\treticle", arg)
+
+			buckets := calculateTest(origin, points, zeros, nil, arg.Limit,
+				arg.NumBuckets)
+
+			var zerosHit, bestBucket, count int
+			// compare what the bucket contains that arg says is the best
+			compare := buckets[int(arg.Theta)]
+			for i := range compare {
+				if compare[i] > 0 {
+					count++
+					log.Println("+", zeros.Values[i], "compare")
+				} else {
+					log.Println("-", zeros.Values[i], "compare")
+				}
+			}
+
+			log.Println("------ compare count:", count, "arg count:", arg.Hits)
+
+			zerosHit = 0
+			bestBucket = 0
+			count = 0
+
+			for i, bucket := range buckets {
+				var sum int
+				for _, hit := range bucket {
+					sum += hit
+				}
+
+				if sum > zerosHit {
+					zerosHit = sum
+					bestBucket = i
+				}
+			}
+
+			if zerosHit != result.ZerosHit {
+				panic("what the?")
+			}
+
+			best := buckets[bestBucket]
+			for i := range best {
+				if best[i] > 0 {
+					count++
+					log.Println("+", zeros.Values[i], "best")
+				} else {
+					log.Println("-", zeros.Values[i], "best")
+				}
+			}
+
+			log.Println("------ best count:", count)
+
+			log.Fatal()
 		}
 	}
 
