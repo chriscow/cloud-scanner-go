@@ -17,7 +17,7 @@ type Lattice struct {
 	VertexType  VertexType
 	Parameters  interface{}
 
-	Points []Vector2 `json:"ignore"`
+	Points []Vector2 `json:"-"`
 }
 
 // LatticeType enumeration

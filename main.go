@@ -18,6 +18,9 @@ var (
 func checkEnv() {
 	godotenv.Load()
 
+	if os.Getenv("NSQ_LOOKUP") == "" {
+		log.Fatal("NSQ_LOOKUP environment variable not set")
+	}
 }
 
 func main() {
@@ -62,7 +65,7 @@ func main() {
 		},
 
 		&cli.Float64Flag{
-			Name:  "max-value",
+			Name:  "max-zero",
 			Usage: "Limit the zeros so they don't exceed this value (scans are quicker)",
 			Value: 100,
 		},
@@ -85,8 +88,8 @@ func main() {
 
 		&cli.Float64Flag{
 			Name:  "min-score",
-			Usage: "Filter scores less than this float value (.3 == filter scores < 30%",
-			Value: 0,
+			Usage: "Filter scores less than this float value (.3 eq ignore scores < 30%)",
+			Value: .3,
 		},
 	}
 
@@ -101,9 +104,16 @@ func main() {
 			Subcommands: []*cli.Command{
 				{
 					Name:      "radius",
-					Usage:     "scan a lattice at random Points from the origin within a radius",
+					Usage:     "scan a radius at random origins within a radius",
 					ArgsUsage: "lattice zero1 [zero2]",
 					Action:    scanRadiusCmd,
+					Flags:     scanFlags,
+				},
+				{
+					Name:      "lattice",
+					Usage:     "partitions a lattice and generates scan radius messages",
+					ArgsUsage: "lattice zero1 [zero2]",
+					Action:    scanLatticeCmd,
 					Flags:     scanFlags,
 				},
 			},

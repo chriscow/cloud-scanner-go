@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"sort"
-
-	"github.com/nsqio/go-nsq"
-	"github.com/shamaton/msgpack"
 )
 
 // Result holds the data from a single scan and is serialized with MessagePack
@@ -43,29 +40,6 @@ type bucketHits struct {
 // String returns the string representation of a bucketHits struct
 func (zh bucketHits) String() string {
 	return fmt.Sprint("bucket:", zh.Bucket, " hits:", zh.Hits, " theta:", zh.Theta)
-}
-
-type scanResultHandler struct{}
-
-// HandleMessage implements the Handler interface.
-func (h scanResultHandler) HandleMessage(m *nsq.Message) error {
-	if len(m.Body) == 0 {
-		// Returning nil will automatically send a FIN command to NSQ to mark the message as processed.
-		// In this case, a message with an empty body is simply ignored/discarded.
-		return nil
-	}
-
-	// do whatever actual message processing is desired
-	res := Result{}
-	if err := msgpack.Decode(m.Body, &res); err != nil {
-		fmt.Println("Failed to decode message", err)
-		return err
-	}
-
-	fmt.Println(res.Origin)
-
-	// Returning a non-nil error will automatically send a REQ command to NSQ to re-queue the message.
-	return nil
 }
 
 // countHits returns a sorted list of the count of hits in each bucket

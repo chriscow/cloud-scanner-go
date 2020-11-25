@@ -23,14 +23,17 @@ type Session struct {
 	ScansPerSec   int
 	TotalTime     time.Duration
 	ProcCount     int
-	scansReq      int
-	minScore      float64
+	ScansReq      int
+	MinScore      float64
 	wg            *sync.WaitGroup
 	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(ctx context.Context, id int, zline *ZLine, lattice *Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+func NewSession(id int, zline *ZLine, lattice *Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+	cctx, cancel := context.WithCancel(context.Background())
+
 	s := &Session{
 		ID:            id,
 		ZLine:         zline,
@@ -39,14 +42,45 @@ func NewSession(ctx context.Context, id int, zline *ZLine, lattice *Lattice, rad
 		DistanceLimit: distanceLimit,
 		BucketCount:   bucketCount,
 		ProcCount:     runtime.GOMAXPROCS(0),
-		minScore:      minScore,
-		scansReq:      scansReq,
-		ctx:           ctx,
+		MinScore:      minScore,
+		ScansReq:      scansReq,
+		ctx:           cctx,
+		cancel:        cancel,
 		wg:            &sync.WaitGroup{},
 	}
 
 	s.wg.Add(s.ProcCount)
 	return s
+}
+
+// RestoreSession rebuilds a Session from a deserialized Session from the message
+// queue (basically the zeros values and lattice points are not there)
+func RestoreSession(s *Session) error {
+
+	s.ProcCount = runtime.GOMAXPROCS(0)
+
+	lattice, err := NewLattice(s.Lattice.LatticeType, s.Lattice.VertexType)
+	if err != nil {
+		return err
+	}
+	s.Lattice = lattice
+
+	zeros := make([]*Zeros, 0)
+	for _, z := range s.ZLine.Zeros {
+		zero, err := LoadZeros(z.ZeroType, s.ZLine.Limit, z.Scalar, z.Negatives)
+		if err != nil {
+			return err
+		}
+
+		zeros = append(zeros, zero)
+	}
+	s.ZLine.Zeros = zeros
+	s.wg = &sync.WaitGroup{}
+	s.wg.Add(s.ProcCount)
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ctx = ctx
+	s.cancel = cancel
+	return nil
 }
 
 // createResult creates a regular `zeros hit` result and scores it on the
@@ -78,7 +112,7 @@ func (s *Session) createResult(origin Vector2, ztype ZeroType, zcount int, bh bu
 // Start starts scanning using the session's parameters
 func (s *Session) Start() (<-chan Result, error) {
 
-	resCh := make(chan Result, s.scansReq)
+	resCh := make(chan Result, s.ScansReq)
 
 	maxZero := s.ZLine.MaxZeroVal()
 	filtered := s.Lattice.Filter(s.ZLine.Origin, s.Radius, maxZero, s.DistanceLimit)
@@ -96,15 +130,20 @@ func (s *Session) Start() (<-chan Result, error) {
 
 		elapsed := time.Since(start)
 		s.TotalTime = elapsed
-		s.ScansPerSec = int(math.Round(float64(s.scansReq) / elapsed.Seconds()))
+		s.ScansPerSec = int(math.Round(float64(s.ScansReq) / elapsed.Seconds()))
 	}()
 
 	return resCh, nil
 }
 
+// Stop cancels a currently running scan
+func (s *Session) Stop() {
+	s.cancel()
+}
+
 func (s *Session) scanJob(id int, filtered []Vector2, resCh chan<- Result) {
 
-	count := s.scansReq / s.ProcCount
+	count := s.ScansReq / s.ProcCount
 	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
 	log.Println("[Job:", id, "] started scanning", count, "origins")
 
@@ -120,7 +159,7 @@ func (s *Session) scanJob(id int, filtered []Vector2, resCh chan<- Result) {
 		best := getBestBuckets(buckets)
 		for _, hits := range best {
 			result := s.createResult(origin, zero.ZeroType, zero.Count, hits)
-			if result.Score >= s.minScore {
+			if result.Score >= s.MinScore {
 				resCh <- result
 			}
 		}

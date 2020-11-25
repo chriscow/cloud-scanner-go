@@ -42,7 +42,7 @@ type Zeros struct {
 	Scalar    float64
 	Negatives bool
 	Count     int
-	Values    []float64 `msgpack:"ignore"`
+	Values    []float64 `json:"-"`
 }
 
 // ZLine is a number line in space starting at the specified origin and rotated
@@ -50,6 +50,7 @@ type Zeros struct {
 type ZLine struct {
 	Origin Vector2
 	Angle  float64
+	Limit  float64
 	Zeros  []*Zeros
 }
 
@@ -86,14 +87,15 @@ func (z ZeroType) GetZType(name string) (ZeroType, error) {
 }
 
 // NewZLine creates and initializes a zline
-func NewZLine(origin Vector2, zeros []ZeroType, maxValue, scale float64, neg bool) (*ZLine, error) {
+func NewZLine(origin Vector2, zeros []ZeroType, limit, scale float64, neg bool) (*ZLine, error) {
 	zline := &ZLine{
 		Origin: origin,
+		Limit:  limit,
 		Zeros:  make([]*Zeros, 0),
 	}
 
 	for _, ztype := range zeros {
-		zero, err := LoadZeros(ztype, maxValue, scale, neg)
+		zero, err := LoadZeros(ztype, limit, scale, neg)
 		if err != nil {
 			return nil, err
 		}

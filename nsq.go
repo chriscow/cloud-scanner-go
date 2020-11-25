@@ -8,10 +8,10 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
-func startConsumer(handler nsq.Handler) error {
+func startConsumer(topic, channel string, handler nsq.Handler) error {
 	// Instantiate a consumer that will subscribe to the provided channel.
 	config := nsq.NewConfig()
-	consumer, err := nsq.NewConsumer("scan-results", "main", config)
+	consumer, err := nsq.NewConsumer(topic, channel, config)
 	if err != nil {
 		return err
 	}
@@ -22,7 +22,7 @@ func startConsumer(handler nsq.Handler) error {
 
 	// Use nsqlookupd to discover nsqd instances.
 	// See also ConnectToNSQD, ConnectToNSQDs, ConnectToNSQLookupds.
-	err = consumer.ConnectToNSQLookupd("localhost:4161")
+	err = consumer.ConnectToNSQLookupd(os.Getenv("NSQ_LOOKUP") + ":4161")
 	// err = consumer.ConnectToNSQD("localhost:4150")
 	if err != nil {
 		return err
