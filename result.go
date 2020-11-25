@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"math"
 	"sort"
+	"strconv"
 )
 
 // Result holds the data from a single scan and is serialized with MessagePack
@@ -40,6 +43,32 @@ type bucketHits struct {
 // String returns the string representation of a bucketHits struct
 func (zh bucketHits) String() string {
 	return fmt.Sprint("bucket:", zh.Bucket, " hits:", zh.Hits, " theta:", zh.Theta)
+}
+
+// CreateResult creates a regular `zeros hit` result and scores it on the
+// percentage of zeros hit to total zeros
+func CreateResult(id, bucketCount int, origin Vector2, ztype ZeroType, zcount int, bh bucketHits) Result {
+	if origin.X == 0 && origin.Y == 0 {
+		msg := fmt.Sprint("[createResult] received 0,0 origin")
+		log.Println(msg)
+	}
+
+	// trim off extranious decimal places since theta's precision is
+	// dependent on the number of buckets.  x2 just in case
+	places := math.Pow10(len(strconv.Itoa(bucketCount)) * 2)
+	score := math.Round(float64(bh.Hits)/float64(zcount)*places) / places
+	theta := math.Round(bh.Theta*places) / places
+
+	return Result{
+		SessionID:  id,
+		Origin:     origin,
+		ZeroType:   ztype,
+		ZerosCount: zcount,
+		ZerosHit:   bh.Hits,
+		BestTheta:  theta,
+		BestBucket: bh.Bucket,
+		Score:      score,
+	}
 }
 
 // countHits returns a sorted list of the count of hits in each bucket

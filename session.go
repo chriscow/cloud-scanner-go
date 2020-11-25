@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
+
+	"github.com/urfave/cli/v2"
 )
 
 // Session is a distinct scan of random points within a radius from the ZLine
@@ -54,7 +54,8 @@ func NewSession(id int, zline *ZLine, lattice *Lattice, radius, distanceLimit, m
 }
 
 // RestoreSession rebuilds a Session from a deserialized Session from the message
-// queue (basically the zeros values and lattice points are not there)
+// bus (basically the zeros values and lattice points are not there when
+// serialized to the message bus)
 func RestoreSession(s *Session) error {
 
 	s.ProcCount = runtime.GOMAXPROCS(0)
@@ -83,30 +84,50 @@ func RestoreSession(s *Session) error {
 	return nil
 }
 
-// createResult creates a regular `zeros hit` result and scores it on the
-// percentage of zeros hit to total zeros
-func (s *Session) createResult(origin Vector2, ztype ZeroType, zcount int, bh bucketHits) Result {
-	if origin.X == 0 && origin.Y == 0 {
-		msg := fmt.Sprint("[createResult] received 0,0 origin")
-		log.Println(msg)
+// sessionFromCLI creates a session from CLI arguments and flags
+func sessionFromCLI(ctx *cli.Context) (*Session, error) {
+
+	var lt LatticeType
+	lt, err := lt.GetLType(ctx.Args().Get(0))
+	if err != nil {
+		return nil, err
 	}
 
-	// trim off extranious decimal places since theta's precision is
-	// dependent on the number of buckets.  x2 just in case
-	places := math.Pow10(len(strconv.Itoa(s.BucketCount)) * 2)
-	score := math.Round(float64(bh.Hits)/float64(zcount)*places) / places
-	theta := math.Round(bh.Theta*places) / places
-
-	return Result{
-		SessionID:  s.ID,
-		Origin:     origin,
-		ZeroType:   ztype,
-		ZerosCount: zcount,
-		ZerosHit:   bh.Hits,
-		BestTheta:  theta,
-		BestBucket: bh.Bucket,
-		Score:      score,
+	lattice, err := NewLattice(lt, Vertices)
+	if err != nil {
+		return nil, err
 	}
+
+	zeros := make([]ZeroType, 0)
+	for _, zarg := range ctx.Args().Slice()[1:] {
+		var zt ZeroType
+		zt, err := zt.GetZType(zarg)
+		if err != nil {
+			return nil, err
+		}
+
+		zeros = append(zeros, zt)
+	}
+
+	origin := Vector2{
+		X: ctx.Float64Slice("origin")[0],
+		Y: ctx.Float64Slice("origin")[1],
+	}
+
+	maxValue := ctx.Float64("max-zero")
+	radius := ctx.Float64("radius")
+	distanceLimit := ctx.Float64("distance-limit")
+	scanCount := ctx.Int("scans")
+	buckets := ctx.Int("buckets")
+
+	minScore := ctx.Float64("min-score")
+
+	zline, err := NewZLine(origin, zeros, maxValue, 1, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSession(0, zline, lattice, radius, distanceLimit, minScore, scanCount, buckets), nil
 }
 
 // Start starts scanning using the session's parameters
@@ -158,7 +179,7 @@ func (s *Session) scanJob(id int, filtered []Vector2, resCh chan<- Result) {
 
 		best := getBestBuckets(buckets)
 		for _, hits := range best {
-			result := s.createResult(origin, zero.ZeroType, zero.Count, hits)
+			result := CreateResult(s.ID, s.BucketCount, origin, zero.ZeroType, zero.Count, hits)
 			if result.Score >= s.MinScore {
 				resCh <- result
 			}
