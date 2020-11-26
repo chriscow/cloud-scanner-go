@@ -4,15 +4,13 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/nsqio/go-nsq"
 	"github.com/shamaton/msgpack"
 )
 
-func startScan(s *Session, msg *nsq.Message) error {
+// session is the deserialized session request.
+func scanAndPublish(s *Session, sigChan <-chan os.Signal) error {
 	ch, err := s.Start()
 	if err != nil {
 		return err
@@ -20,10 +18,6 @@ func startScan(s *Session, msg *nsq.Message) error {
 
 	count := 0
 	running := true
-
-	// wait for signal to exit
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Instantiate a producer.
 	topic := "scan-radius-results"
@@ -33,32 +27,27 @@ func startScan(s *Session, msg *nsq.Message) error {
 		log.Fatal(err)
 	}
 
-	timeout := make(chan bool, 1)
-	defer close(timeout)
-	timer := time.NewTimer(30 * time.Second)
-
 	for running {
 		select {
 		case result, ok := <-ch:
 			if !ok {
 				log.Println("Channel closed. Stopping")
 				producer.Stop()
+				s.Stop()
 				running = false
 			} else {
 				count++
 				body, err := msgpack.Encode(result)
 				err = producer.Publish(topic, body)
 				if err != nil {
+					s.Stop()
+					producer.Stop()
 					log.Fatal(err)
 				}
 			}
-		case <-timer.C:
-			if msg != nil {
-				log.Println("Touching message")
-				msg.Touch()
-			}
 
 		case <-sigChan:
+			producer.Stop()
 			s.Stop()
 			msg := fmt.Sprint("\nCanceled by user. count:", count)
 			log.Fatal(msg)

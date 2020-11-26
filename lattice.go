@@ -134,7 +134,9 @@ func (l *Lattice) Bounds() BoundingBox {
 }
 
 // Partition finds all origins that with the given radius, will cover
-// the entire lattice
+// the entire lattice.
+// We are doing the hexogonal tiling with circles over the lattice:
+// from https://stackoverflow.com/questions/7716460/fully-cover-a-rectangle-with-minimum-amount-of-fixed-radius-circles
 func (l *Lattice) Partition(radius float64) []Vector2 {
 
 	diameter := radius * 2
@@ -143,9 +145,6 @@ func (l *Lattice) Partition(radius float64) []Vector2 {
 	bmax := bounds.Max()
 	bmin := bounds.Min()
 	origins := make([]Vector2, 0)
-
-	// We are doing the hexogonal tiling with circles over the lattice:
-	// https://stackoverflow.com/questions/7716460/fully-cover-a-rectangle-with-minimum-amount-of-fixed-radius-circles
 
 	row := 1
 	point := bounds.Min()

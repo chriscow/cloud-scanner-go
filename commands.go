@@ -30,7 +30,11 @@ func scanRadiusCmd(ctx *cli.Context) error {
 		return err
 	}
 
-	return startScan(s, nil)
+	// wait for signal to exit
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	return scanAndPublish(s, sigChan)
 }
 
 // scanLatticeCmd generates scan-radius sessions and publishes them to the
