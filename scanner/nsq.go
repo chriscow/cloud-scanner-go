@@ -7,7 +7,7 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
-func startConsumer(ctx context.Context, topic, channel string, handler nsq.Handler) error {
+func StartConsumer(ctx context.Context, topic, channel string, handler nsq.Handler) error {
 	// Instantiate a consumer that will subscribe to the provided channel.
 	config := nsq.NewConfig()
 	consumer, err := nsq.NewConsumer(topic, channel, config)

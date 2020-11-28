@@ -16,6 +16,11 @@ import (
 	"reticle/scanner"
 )
 
+const (
+	sessionTopic = "scan-session"
+	resultTopic  = "scan-radius-results"
+)
+
 type scanRadiusHandler struct {
 	ctx context.Context
 }
@@ -46,7 +51,7 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 
 	running := true
 	// Returning a non-nil error will automatically send a REQ command to NSQ to re-queue the message.
-	go scanner.ScanAndPublish(h.ctx, &s, sigChan)
+	go scanner.ScanAndPublish(h.ctx, &s)
 
 	for running {
 		select {
@@ -55,7 +60,7 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 				log.Println("Touching message")
 				msg.Touch()
 			}
-		case <-ctx.Done():
+		case <-h.ctx.Done():
 			s.Stop()
 			msg := fmt.Sprint("\nCanceled by user.")
 			log.Fatal(msg)
@@ -73,7 +78,7 @@ func checkEnv() {
 	}
 }
 
-func main() error {
+func main() {
 	checkEnv()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -83,11 +88,10 @@ func main() error {
 
 	handler := &scanRadiusHandler{}
 
-	go scanner.startConsumer(ctx, "scan-session", "scan-radius-scanner", handler)
+	log.Println("Watching for sessions on", sessionTopic, "publishing to", resultTopic)
+	go scanner.StartConsumer(ctx, sessionTopic, resultTopic, handler)
 
-	select {
-	case <-sigChan:
-		cancel()
-	default:
-	}
+	<-sigChan
+	cancel()
+	log.Println("\nUser cancelled")
 }
