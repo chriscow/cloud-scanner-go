@@ -59,7 +59,7 @@ func scanLatticeCmd(ctx *cli.Context) error {
 		default:
 			go func() {
 
-				s.ID = id
+				s.ID = start.Unix() + int64(id)
 				s.ZLine.Origin = origin
 
 				body, err := json.Marshal(s)

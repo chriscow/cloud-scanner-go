@@ -45,7 +45,9 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"reticle/scanner"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -54,6 +56,106 @@ import (
 )
 
 var routes = flag.Bool("routes", false, "Generate router documentation")
+
+// SessionPayload ...
+type SessionPayload struct {
+	*scanner.Session
+}
+
+// Bind on SessionPayload allows post-processing after unmarshalling
+func (s *SessionPayload) Bind(r *http.Request) error {
+	if s.Session == nil {
+		return errors.New("missing required Session field")
+	}
+
+	if s.Session.ID == 0 {
+		s.Session.ID = time.Now().Unix()
+	}
+
+	return nil
+}
+
+// Render on SessionPayload allows pre-processing before a response is marshalled
+// and sent across the wire
+func (s *SessionPayload) Render(w http.ResponseWriter, r *http.Request) error {
+	// s.Elapsed = ... for example
+	return nil
+}
+
+func newSessionPayload(session *scanner.Session) *SessionPayload {
+	resp := &SessionPayload{Session: session}
+
+	// add anything else to the payload not part of the session
+
+	return resp
+}
+
+func scanRoutes() chi.Router {
+	r := chi.NewRouter()
+	r.Use(sessionCtx)
+	r.Post("/", createSession)
+
+	return r
+}
+
+// SessionCtx middleware is used to load a Session object from
+// the URL parameters passed through as the request. In case
+// the Session could not be found, we stop here and return a 404.
+func sessionCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var session *scanner.Session
+		var err error
+
+		if id := chi.URLParam(r, "id"); id != "" {
+			session, err = dbGetSession(id)
+		} else {
+			render.Render(w, r, ErrNotFound)
+			return
+		}
+
+		if err != nil {
+			render.Render(w, r, ErrNotFound)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "session", session)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func dbGetSession(id string) (*scanner.Session, error) {
+	return nil, errors.New("dbGetSession not implemented")
+}
+
+func dbNewSession(session *scanner.Session) {
+
+}
+
+func createSession(w http.ResponseWriter, r *http.Request) {
+
+	req := &SessionPayload{}
+	if err := render.Bind(r, req); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	session := req.Session
+	dbNewSession(session)
+
+	render.Status(r, http.StatusCreated)
+	render.Render(w, r, newSessionPayload(session))
+	// data := &ArticleRequest{}
+	// if err := render.Bind(r, data); err != nil {
+	// 	render.Render(w, r, ErrInvalidRequest(err))
+	// 	return
+	// }
+
+	// article := data.Article
+	// dbNewArticle(article)
+
+	// render.Status(r, http.StatusCreated)
+	// render.Render(w, r, NewArticleResponse(article))
+}
 
 func main() {
 	flag.Parse()
@@ -65,6 +167,8 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
+
+	r.Mount("/scan", scanRoutes())
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
@@ -105,7 +209,7 @@ func main() {
 	if *routes {
 		// fmt.Println(docgen.JSONRoutesDoc(r))
 		fmt.Println(docgen.MarkdownRoutesDoc(r, docgen.MarkdownOpts{
-			ProjectPath: "github.com/go-chi/chi",
+			ProjectPath: "github.com/chriscow/cloud-scanner-go",
 			Intro:       "Welcome to the chi/_examples/rest generated docs.",
 		}))
 		return
@@ -114,6 +218,7 @@ func main() {
 	http.ListenAndServe(":3333", r)
 }
 
+// ListArticles ...
 func ListArticles(w http.ResponseWriter, r *http.Request) {
 	if err := render.RenderList(w, r, NewArticleListResponse(articles)); err != nil {
 		render.Render(w, r, ErrRender(err))
@@ -290,11 +395,13 @@ func init() {
 // in another file, or another sub-package.
 //--
 
+// UserPayload ...
 type UserPayload struct {
 	*User
 	Role string `json:"role"`
 }
 
+// NewUserPayloadResponse initializes UserPayload with the user
 func NewUserPayloadResponse(user *User) *UserPayload {
 	return &UserPayload{User: user}
 }
@@ -305,6 +412,7 @@ func (u *UserPayload) Bind(r *http.Request) error {
 	return nil
 }
 
+// Render UserPayload
 func (u *UserPayload) Render(w http.ResponseWriter, r *http.Request) error {
 	u.Role = "collaborator"
 	return nil
@@ -327,11 +435,12 @@ type ArticleRequest struct {
 	ProtectedID string `json:"id"` // override 'id' json to have more control
 }
 
+// Bind ArticleRequest
 func (a *ArticleRequest) Bind(r *http.Request) error {
 	// a.Article is nil if no Article fields are sent in the request. Return an
 	// error to avoid a nil pointer dereference.
 	if a.Article == nil {
-		return errors.New("missing required Article fields.")
+		return errors.New("missing required Article fields")
 	}
 
 	// a.User is nil if no Userpayload fields are sent in the request. In this app
@@ -360,6 +469,7 @@ type ArticleResponse struct {
 	Elapsed int64 `json:"elapsed"`
 }
 
+// NewArticleResponse ...
 func NewArticleResponse(article *Article) *ArticleResponse {
 	resp := &ArticleResponse{Article: article}
 
@@ -372,12 +482,14 @@ func NewArticleResponse(article *Article) *ArticleResponse {
 	return resp
 }
 
+// Render an ArticleResponse
 func (rd *ArticleResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	// Pre-processing before a response is marshalled and sent across the wire
 	rd.Elapsed = 10
 	return nil
 }
 
+// NewArticleListResponse creates ...
 func NewArticleListResponse(articles []*Article) []render.Renderer {
 	list := []render.Renderer{}
 	for _, article := range articles {
@@ -410,11 +522,13 @@ type ErrResponse struct {
 	ErrorText  string `json:"error,omitempty"` // application-level error message, for debugging
 }
 
+// Render an ErrResponse
 func (e *ErrResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	render.Status(r, e.HTTPStatusCode)
 	return nil
 }
 
+// ErrInvalidRequest returns a *ErrResponse
 func ErrInvalidRequest(err error) render.Renderer {
 	return &ErrResponse{
 		Err:            err,
@@ -424,6 +538,7 @@ func ErrInvalidRequest(err error) render.Renderer {
 	}
 }
 
+// ErrRender renders an error embedding it into an ErrResponse
 func ErrRender(err error) render.Renderer {
 	return &ErrResponse{
 		Err:            err,
@@ -433,6 +548,7 @@ func ErrRender(err error) render.Renderer {
 	}
 }
 
+// ErrNotFound ...
 var ErrNotFound = &ErrResponse{HTTPStatusCode: 404, StatusText: "Resource not found."}
 
 //--
@@ -481,7 +597,7 @@ func dbGetArticle(id string) (*Article, error) {
 			return a, nil
 		}
 	}
-	return nil, errors.New("article not found.")
+	return nil, errors.New("article not found")
 }
 
 func dbGetArticleBySlug(slug string) (*Article, error) {
@@ -490,7 +606,7 @@ func dbGetArticleBySlug(slug string) (*Article, error) {
 			return a, nil
 		}
 	}
-	return nil, errors.New("article not found.")
+	return nil, errors.New("article not found")
 }
 
 func dbUpdateArticle(id string, article *Article) (*Article, error) {
@@ -500,7 +616,7 @@ func dbUpdateArticle(id string, article *Article) (*Article, error) {
 			return article, nil
 		}
 	}
-	return nil, errors.New("article not found.")
+	return nil, errors.New("article not found")
 }
 
 func dbRemoveArticle(id string) (*Article, error) {
@@ -510,7 +626,7 @@ func dbRemoveArticle(id string) (*Article, error) {
 			return a, nil
 		}
 	}
-	return nil, errors.New("article not found.")
+	return nil, errors.New("article not found")
 }
 
 func dbGetUser(id int64) (*User, error) {
@@ -519,5 +635,5 @@ func dbGetUser(id int64) (*User, error) {
 			return u, nil
 		}
 	}
-	return nil, errors.New("user not found.")
+	return nil, errors.New("user not found")
 }

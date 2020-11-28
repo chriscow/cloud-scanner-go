@@ -14,7 +14,7 @@ import (
 // Session is a distinct scan of random points within a radius from the ZLine
 // origin.
 type Session struct {
-	ID            int
+	ID            int64
 	ZLine         *ZLine
 	Lattice       *Lattice
 	Radius        float64
@@ -31,7 +31,7 @@ type Session struct {
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(id int, zline *ZLine, lattice *Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+func NewSession(id int64, zline *ZLine, lattice *Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
 	cctx, cancel := context.WithCancel(context.Background())
 
 	s := &Session{
