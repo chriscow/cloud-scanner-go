@@ -1,14 +1,13 @@
-package main
+package scanner
 
 import (
+	"context"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/nsqio/go-nsq"
 )
 
-func startConsumer(topic, channel string, handler nsq.Handler) error {
+func startConsumer(ctx context.Context, topic, channel string, handler nsq.Handler) error {
 	// Instantiate a consumer that will subscribe to the provided channel.
 	config := nsq.NewConfig()
 	consumer, err := nsq.NewConsumer(topic, channel, config)
@@ -29,9 +28,7 @@ func startConsumer(topic, channel string, handler nsq.Handler) error {
 	}
 
 	// wait for signal to exit
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	<-ctx.Done()
 
 	// Gracefully stop the consumer.
 	consumer.Stop()

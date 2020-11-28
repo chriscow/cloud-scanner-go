@@ -1,4 +1,4 @@
-package main
+package scanner
 
 import (
 	"log"
@@ -11,7 +11,7 @@ func TestAllAngles(t *testing.T) {
 	zero := 13.0
 
 	origin := Vector2{-0.8804702, -0.0348327}
-	limit := 1
+	limit := 1.0
 	theta1, theta2 := allAngles(lattice, origin, zero, limit)
 
 	if theta1 != 73.79472632488876 {
@@ -33,7 +33,9 @@ func TestCalc(t *testing.T) {
 	origin := Vector2{-0.4297824, -0.9473751}
 	log.Println(len(zeros.Values), "zeros", zeros.Values[0], zeros.Values[len(zeros.Values)-1])
 
-	result := calculate(origin, lattice.Points, zeros, nil, 1, 3600)
+	result := calculate(origin, lattice.Points, zeros.Values, nil, 1, 3600)
+	t.Log("Need to verify result", result)
+	t.Fail()
 }
 
 // func TestPerf(t *testing.T) {

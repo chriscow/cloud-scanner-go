@@ -1,16 +1,22 @@
-package main
+package scanner
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"os"
+	"math"
 
 	"github.com/nsqio/go-nsq"
 	"github.com/shamaton/msgpack"
 )
 
-// session is the deserialized session request.
-func scanAndPublish(s *Session, sigChan <-chan os.Signal) error {
+var (
+	distances = []float64{.5, 1, 2, 4, 8, 16, 32, 64, math.MaxFloat64}
+)
+
+// ScanAndPublish starts a scan based on the Session parameters and publishes
+// the results to the NSQ message bus in the scan-radius-results topic
+func ScanAndPublish(ctx context.Context, s *Session) error {
 	ch, err := s.Start()
 	if err != nil {
 		return err
@@ -46,7 +52,7 @@ func scanAndPublish(s *Session, sigChan <-chan os.Signal) error {
 				}
 			}
 
-		case <-sigChan:
+		case <-ctx.Done():
 			producer.Stop()
 			s.Stop()
 			msg := fmt.Sprint("\nCanceled by user. count:", count)

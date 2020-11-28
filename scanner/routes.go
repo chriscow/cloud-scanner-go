@@ -1,4 +1,4 @@
-package main
+package scanner
 
 import (
 	"encoding/json"
@@ -14,28 +14,6 @@ import (
 	"github.com/nsqio/go-nsq"
 	"github.com/urfave/cli/v2"
 )
-
-func scanRadiusCmd(ctx *cli.Context) error {
-
-	if ctx.NArg() < 2 {
-		return errors.New("Expected lattice and one or more zeros")
-	}
-
-	if ctx.Bool("service") {
-		return scanRadiusSvc(ctx)
-	}
-
-	s, err := sessionFromCLI(ctx)
-	if err != nil {
-		return err
-	}
-
-	// wait for signal to exit
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	return scanAndPublish(s, sigChan)
-}
 
 // scanLatticeCmd generates scan-radius sessions and publishes them to the
 // channel returned.  Each session contains a different origin such that all the
