@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	sessionTopic = "scan-session"        // subscribe to this topic for scan requests
-	resultTopic  = "scan-radius-results" // publish results to this topic
+	sessionTopic   = "scan-session"        // subscribe to this topic for scan requests
+	sessionChannel = "radius-scanner"      // channel for the above topic (who am I?)
+	resultTopic    = "scan-radius-results" // publish results to this topic
+	touchSec       = 30                    // touch the message every so often
 )
 
 type scanRadiusHandler struct{}
@@ -30,40 +32,39 @@ func (h scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 		return nil
 	}
 
+	log.Println("auto response:", msg.IsAutoResponseDisabled(), "has responded:", msg.HasResponded())
+
 	s := scan.Session{}
 	if err := json.Unmarshal(msg.Body, &s); err != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	scan.Restore(ctx, &s)
+	if err := scan.Restore(&s); err != nil {
+		return err
+	}
 
 	log.Println("[Scan Radius Serivce] Received scan session request", s.ID, "for", s.ScansReq, "scans at", s.ZLine.Origin, "keeping the best", s.MinScore*100, "%")
 
-	timeout := make(chan bool, 1)
-	defer close(timeout)
-	timer := time.NewTimer(30 * time.Second)
+	cctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	running := true
-
-	go scan.Run(ctx, resultTopic, &s)
+	done, err := scan.Run(cctx, resultTopic, &s)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 loop:
-	for running {
+	for now := range time.Tick(touchSec * time.Second) {
+		log.Println("Touching message", now)
+		msg.Touch()
 		select {
-		case <-timer.C:
-			if msg != nil {
-				log.Println("Touching message")
-				msg.Touch()
-			}
-		case <-ctx.Done():
-			log.Println("\nCanceled by user.")
+		case <-done:
 			break loop
+		default:
 		}
 	}
 
-	cancel()
-	return nil
+	return nil // auto-ack the msg
 }
 
 func checkEnv() {
@@ -85,7 +86,7 @@ func main() {
 	handler := scanRadiusHandler{}
 
 	log.Println("Watching for sessions on", sessionTopic, "publishing to", resultTopic)
-	go util.StartConsumer(ctx, sessionTopic, resultTopic, handler)
+	go util.StartConsumer(ctx, sessionTopic, sessionChannel, handler)
 
 	<-sigChan
 	cancel()

@@ -24,10 +24,12 @@ var (
 
 // Run starts a scan based on the Session parameters and publishes
 // the results to the NSQ message bus in the scan-radius-results topic
-func Run(ctx context.Context, topic string, s *Session) error {
-	ch, err := s.Start()
+func Run(parent context.Context, topic string, s *Session) (<-chan bool, error) {
+	cctx, cancel := context.WithCancel(parent)
+
+	ch, err := s.Start(cctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	count := 0
@@ -37,36 +39,46 @@ func Run(ctx context.Context, topic string, s *Session) error {
 	config := nsq.NewConfig()
 	producer, err := nsq.NewProducer("127.0.0.1:4150", config) // always produce to the local queue
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	for running {
-		select {
-		case result, ok := <-ch:
-			if !ok {
-				log.Println("Channel closed. Stopping")
-				producer.Stop()
-				running = false
-			} else {
-				count++
-				body, err := msgpack.Encode(result)
-				err = producer.Publish(topic, body)
-				if err != nil {
+	done := make(chan bool)
+
+	go func() {
+		for running {
+			select {
+			case result, ok := <-ch:
+				if !ok {
+					log.Println("Channel closed. Stopping")
+					cancel() // stop the child goroutines
 					producer.Stop()
-					return err
+					running = false
+					done <- true
+				} else {
+					count++
+					body, err := msgpack.Encode(result)
+					err = producer.Publish(topic, body)
+					if err != nil {
+						cancel()
+						producer.Stop()
+						done <- true
+						return
+					}
 				}
+
+			case <-parent.Done():
+				cancel()
+				producer.Stop()
+				done <- true
+				return
+			default:
 			}
-
-		case <-ctx.Done():
-			producer.Stop()
-			return ctx.Err()
-		default:
 		}
-	}
 
-	log.Println("Published", count, "points with a score >", s.MinScore*100, "% at", s.ScansPerSec, "scans/sec in", s.TotalTime)
+		log.Println("Published", count, "points with a score >", s.MinScore*100, "% at", s.ScansPerSec, "scans/sec in", s.TotalTime)
+	}()
 
-	return nil
+	return done, nil
 }
 
 // scanLatticeCmd generates scan-radius sessions and publishes them to the
@@ -114,7 +126,7 @@ func scanLatticeCmd(ctx *cli.Context) error {
 		default:
 			go func() {
 
-				s.ID = start.Unix() + int64(id)
+				s.ID = start.UnixNano() + int64(id)
 				s.ZLine.Origin = origin
 
 				body, err := json.Marshal(s)

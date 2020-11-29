@@ -26,12 +26,19 @@ type Session struct {
 	ProcCount     int
 	ScansReq      int
 	MinScore      float64
-	wg            *sync.WaitGroup
-	ctx           context.Context
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(ctx context.Context, id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+func NewSession(id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+	if id == 0 {
+		id = time.Now().UnixNano()
+	}
+
+	if minScore == 0 {
+		// if minScore is zero, we will publish every bucket so set a minimum
+		// of 1 hit
+		minScore = float64(1) / float64(zline.Zeros[0].Count)
+	}
 
 	s := &Session{
 		ID:            id,
@@ -43,18 +50,15 @@ func NewSession(ctx context.Context, id int64, zline g.ZLine, lattice g.Lattice,
 		ProcCount:     runtime.GOMAXPROCS(0),
 		MinScore:      minScore,
 		ScansReq:      scansReq,
-		wg:            &sync.WaitGroup{},
-		ctx:           ctx,
 	}
 
-	s.wg.Add(s.ProcCount)
 	return s
 }
 
 // Restore rebuilds a Session from a deserialized Session from the message
 // bus (basically the zeros values and lattice points are not there when
 // serialized to the message bus)
-func Restore(ctx context.Context, s *Session) error {
+func Restore(s *Session) error {
 
 	s.ProcCount = runtime.GOMAXPROCS(0)
 
@@ -74,14 +78,11 @@ func Restore(ctx context.Context, s *Session) error {
 		zeros = append(zeros, zero)
 	}
 	s.ZLine.Zeros = zeros
-	s.wg = &sync.WaitGroup{}
-	s.wg.Add(s.ProcCount)
-	s.ctx = ctx
 	return nil
 }
 
 // Start starts scanning using the session's parameters
-func (s *Session) Start() (<-chan Result, error) {
+func (s *Session) Start(ctx context.Context) (<-chan Result, error) {
 
 	resCh := make(chan Result, s.ScansReq)
 
@@ -93,11 +94,14 @@ func (s *Session) Start() (<-chan Result, error) {
 	go func() {
 		defer close(resCh)
 
+		wg := &sync.WaitGroup{}
+		wg.Add(s.ProcCount)
+
 		for i := 0; i < s.ProcCount; i++ {
-			go s.scanJob(i, filtered, resCh)
+			go s.scanJob(ctx, wg, i, filtered, resCh)
 		}
 
-		s.wg.Wait()
+		wg.Wait()
 
 		elapsed := time.Since(start)
 		s.TotalTime = elapsed
@@ -107,7 +111,7 @@ func (s *Session) Start() (<-chan Result, error) {
 	return resCh, nil
 }
 
-func (s *Session) scanJob(id int, filtered []g.Vector2, resCh chan<- Result) {
+func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, id int, filtered []g.Vector2, resCh chan<- Result) {
 
 	count := s.ScansReq / s.ProcCount
 	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
@@ -142,14 +146,14 @@ func (s *Session) scanJob(id int, filtered []g.Vector2, resCh chan<- Result) {
 
 		// check if we have been canceled
 		select {
-		case <-s.ctx.Done():
-			s.wg.Done()
+		case <-ctx.Done():
+			wg.Done()
 			return
 		default:
 		}
 	}
 
-	s.wg.Done()
+	wg.Done()
 	// log.Println("[Job:", id, "] done")
 }
 
@@ -196,5 +200,5 @@ func sessionFromCLI(cctx context.Context, ctx *cli.Context) (*Session, error) {
 		return nil, err
 	}
 
-	return NewSession(cctx, 0, zline, lattice, radius, distanceLimit, minScore, scanCount, buckets), nil
+	return NewSession(0, zline, lattice, radius, distanceLimit, minScore, scanCount, buckets), nil
 }

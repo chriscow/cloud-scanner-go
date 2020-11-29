@@ -102,7 +102,7 @@ func loadLattice(ltype LatticeType, vtype VertexType) (Lattice, error) {
 		return l, err
 	}
 
-	if err := msgpack.Decode(b, l); err != nil {
+	if err := msgpack.Decode(b, &l); err != nil {
 		return l, err
 	}
 

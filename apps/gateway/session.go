@@ -28,7 +28,7 @@ func (s *SessionPayload) Bind(r *http.Request) error {
 	}
 
 	if s.Session.ID == 0 {
-		s.Session.ID = time.Now().Unix()
+		s.Session.ID = time.Now().UnixNano()
 	}
 
 	return nil
@@ -44,6 +44,7 @@ func (s *SessionPayload) Render(w http.ResponseWriter, r *http.Request) error {
 func getDefaultSession(w http.ResponseWriter, r *http.Request) {
 	session := &scan.Session{
 		ZLine: geom.ZLine{
+			Limit: 100,
 			Zeros: []geom.Zeros{
 				geom.Zeros{
 					ZeroType: geom.Primes,
@@ -54,7 +55,8 @@ func getDefaultSession(w http.ResponseWriter, r *http.Request) {
 		Radius:        1,
 		DistanceLimit: 1,
 		BucketCount:   3600,
-		ScansReq:      1000,
+		ScansReq:      5000,
+		MinScore:      .3, // 30% of zeros were hit. Cannot be zero
 	}
 
 	payload := SessionPayload{Session: session}
@@ -139,7 +141,7 @@ func scanLatticeCmd(ctx *cli.Context) error {
 		default:
 			go func() {
 
-				s.ID = start.Unix() + int64(id)
+				s.ID = start.UnixNano() + int64(id)
 				s.ZLine.Origin = origin
 
 				body, err := json.Marshal(s)
