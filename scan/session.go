@@ -111,6 +111,10 @@ func (s *Session) Start(ctx context.Context) (<-chan Result, error) {
 	return resCh, nil
 }
 
+// scanJob generates random origins and scans them, publishing the results that
+// meet the minimum score criteria. The number of random origins generated is
+// determined by dividing the scans requested by the processor count, assuming
+// scanJob will be called once per processor.
 func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, id int, filtered []g.Vector2, resCh chan<- Result) {
 
 	count := s.ScansReq / s.ProcCount

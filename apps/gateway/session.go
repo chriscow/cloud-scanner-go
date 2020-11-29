@@ -12,10 +12,6 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
-const (
-	sessionTopic = "scan-session"
-)
-
 // SessionPayload ...
 type SessionPayload struct {
 	*scan.Session

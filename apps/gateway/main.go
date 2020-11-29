@@ -47,6 +47,11 @@ import (
 	"github.com/go-chi/render"
 )
 
+const (
+	sessionTopic = "scan-session"
+	resultsTopic = "scan-radius-results"
+)
+
 var routes = flag.Bool("routes", false, "Generate router documentation")
 
 func main() {
@@ -68,6 +73,8 @@ func main() {
 		// queue a scan using the parameters of the session
 		r.Post("/", startSession)
 	})
+
+	r.Get("/result/ws", wsHandler)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))

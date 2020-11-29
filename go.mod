@@ -3,6 +3,7 @@ module reticle
 go 1.15
 
 require (
+	cloud.google.com/go/pubsub v1.3.1
 	cloud.google.com/go/storage v1.12.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/atedja/go-vector v0.0.0-20170318030839-a887ff7bead7
@@ -14,6 +15,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/websocket v1.4.2
 	github.com/jaypipes/ghw v0.6.1
 	github.com/joho/godotenv v1.3.0
 	github.com/nsqio/go-nsq v1.0.8
