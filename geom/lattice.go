@@ -79,13 +79,13 @@ func (vt VertexType) String() string {
 
 // NewLattice loads or generates lattice Points. If the lattice is generated,
 // the default lattice parameters are used
-func NewLattice(ltype LatticeType, vtype VertexType) (*Lattice, error) {
+func NewLattice(ltype LatticeType, vtype VertexType) (Lattice, error) {
 	// we will eventually generate lattices but the current set are loaded
 	// from files
 	return loadLattice(ltype, vtype)
 }
 
-func loadLattice(ltype LatticeType, vtype VertexType) (*Lattice, error) {
+func loadLattice(ltype LatticeType, vtype VertexType) (Lattice, error) {
 	lstr := strings.ToLower(ltype.String())
 	vstr := strings.ToLower(vtype.String())
 
@@ -95,15 +95,15 @@ func loadLattice(ltype LatticeType, vtype VertexType) (*Lattice, error) {
 	}
 
 	path := cwd + "/data/lattices/" + lstr + "." + vstr + ".msgpack"
-	l := &Lattice{}
+	l := Lattice{}
 
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return l, err
 	}
 
 	if err := msgpack.Decode(b, l); err != nil {
-		return nil, err
+		return l, err
 	}
 
 	return l, nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"reticle/geom"
 	"sort"
 	"strconv"
 )
@@ -11,8 +12,8 @@ import (
 // Result holds the data from a single scan and is serialized with MessagePack
 type Result struct {
 	SessionID     int64
-	Origin        Vector2
-	ZeroType      ZeroType
+	Origin        geom.Vector2
+	ZeroType      geom.ZeroType
 	ZerosCount    int
 	ZerosHit      int
 	BestTheta     float64
@@ -47,7 +48,7 @@ func (zh bucketHits) String() string {
 
 // CreateResult creates a regular `zeros hit` result and scores it on the
 // percentage of zeros hit to total zeros
-func CreateResult(id int64, bucketCount int, origin Vector2, ztype ZeroType, zcount int, bh bucketHits) Result {
+func CreateResult(id int64, bucketCount int, origin geom.Vector2, ztype geom.ZeroType, zcount int, bh bucketHits) Result {
 	if origin.X == 0 && origin.Y == 0 {
 		msg := fmt.Sprint("[createResult] received 0,0 origin")
 		log.Println(msg)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"math"
+	g "reticle/geom"
 	"runtime"
 	"sync"
 	"time"
@@ -15,8 +16,8 @@ import (
 // origin.
 type Session struct {
 	ID            int64
-	ZLine         *ZLine
-	Lattice       *Lattice
+	ZLine         g.ZLine
+	Lattice       g.Lattice
 	Radius        float64
 	DistanceLimit float64
 	BucketCount   int
@@ -31,7 +32,7 @@ type Session struct {
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(id int64, zline *ZLine, lattice *Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
+func NewSession(id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
 	cctx, cancel := context.WithCancel(context.Background())
 
 	s := &Session{
@@ -44,9 +45,9 @@ func NewSession(id int64, zline *ZLine, lattice *Lattice, radius, distanceLimit,
 		ProcCount:     runtime.GOMAXPROCS(0),
 		MinScore:      minScore,
 		ScansReq:      scansReq,
+		wg:            &sync.WaitGroup{},
 		ctx:           cctx,
 		cancel:        cancel,
-		wg:            &sync.WaitGroup{},
 	}
 
 	s.wg.Add(s.ProcCount)
@@ -60,15 +61,15 @@ func RestoreSession(s *Session) error {
 
 	s.ProcCount = runtime.GOMAXPROCS(0)
 
-	lattice, err := NewLattice(s.Lattice.LatticeType, s.Lattice.VertexType)
+	lattice, err := g.NewLattice(s.Lattice.LatticeType, s.Lattice.VertexType)
 	if err != nil {
 		return err
 	}
 	s.Lattice = lattice
 
-	zeros := make([]*Zeros, 0)
+	zeros := make([]g.Zeros, 0)
 	for _, z := range s.ZLine.Zeros {
-		zero, err := LoadZeros(z.ZeroType, s.ZLine.Limit, z.Scalar, z.Negatives)
+		zero, err := g.LoadZeros(z.ZeroType, s.ZLine.Limit, z.Scalar, z.Negatives)
 		if err != nil {
 			return err
 		}
@@ -87,20 +88,20 @@ func RestoreSession(s *Session) error {
 // sessionFromCLI creates a session from CLI arguments and flags
 func sessionFromCLI(ctx *cli.Context) (*Session, error) {
 
-	var lt LatticeType
+	var lt g.LatticeType
 	lt, err := lt.GetLType(ctx.Args().Get(0))
 	if err != nil {
 		return nil, err
 	}
 
-	lattice, err := NewLattice(lt, Vertices)
+	lattice, err := g.NewLattice(lt, g.Vertices)
 	if err != nil {
 		return nil, err
 	}
 
-	zeros := make([]ZeroType, 0)
+	zeros := make([]g.ZeroType, 0)
 	for _, zarg := range ctx.Args().Slice()[1:] {
-		var zt ZeroType
+		var zt g.ZeroType
 		zt, err := zt.GetZType(zarg)
 		if err != nil {
 			return nil, err
@@ -109,7 +110,7 @@ func sessionFromCLI(ctx *cli.Context) (*Session, error) {
 		zeros = append(zeros, zt)
 	}
 
-	origin := Vector2{
+	origin := g.Vector2{
 		X: ctx.Float64Slice("origin")[0],
 		Y: ctx.Float64Slice("origin")[1],
 	}
@@ -122,7 +123,7 @@ func sessionFromCLI(ctx *cli.Context) (*Session, error) {
 
 	minScore := ctx.Float64("min-score")
 
-	zline, err := NewZLine(origin, zeros, maxValue, 1, false)
+	zline, err := g.NewZLine(origin, zeros, maxValue, 1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +163,7 @@ func (s *Session) Stop() {
 	s.cancel()
 }
 
-func (s *Session) scanJob(id int, filtered []Vector2, resCh chan<- Result) {
+func (s *Session) scanJob(id int, filtered []g.Vector2, resCh chan<- Result) {
 
 	count := s.ScansReq / s.ProcCount
 	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)

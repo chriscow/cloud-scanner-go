@@ -45,7 +45,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"reticle/scanner"
+	"reticle/scan"
 	"strings"
 	"time"
 
@@ -59,7 +59,7 @@ var routes = flag.Bool("routes", false, "Generate router documentation")
 
 // SessionPayload ...
 type SessionPayload struct {
-	*scanner.Session
+	*scan.Session
 }
 
 // Bind on SessionPayload allows post-processing after unmarshalling
@@ -82,7 +82,7 @@ func (s *SessionPayload) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func newSessionPayload(session *scanner.Session) *SessionPayload {
+func newSessionPayload(session *scan.Session) *SessionPayload {
 	resp := &SessionPayload{Session: session}
 
 	// add anything else to the payload not part of the session
@@ -103,7 +103,7 @@ func scanRoutes() chi.Router {
 // the Session could not be found, we stop here and return a 404.
 func sessionCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var session *scanner.Session
+		var session *scan.Session
 		var err error
 
 		if id := chi.URLParam(r, "id"); id != "" {
@@ -123,11 +123,11 @@ func sessionCtx(next http.Handler) http.Handler {
 	})
 }
 
-func dbGetSession(id string) (*scanner.Session, error) {
+func dbGetSession(id string) (*scan.Session, error) {
 	return nil, errors.New("dbGetSession not implemented")
 }
 
-func dbNewSession(session *scanner.Session) {
+func dbNewSession(session *scan.Session) {
 
 }
 

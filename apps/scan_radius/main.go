@@ -13,7 +13,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/nsqio/go-nsq"
 
-	"reticle/scanner"
+	"reticle/scan"
+	"reticle/util"
 )
 
 const (
@@ -36,12 +37,12 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 		return nil
 	}
 
-	s := scanner.Session{}
+	s := scan.Session{}
 	if err := json.Unmarshal(msg.Body, &s); err != nil {
 		return err
 	}
 
-	scanner.RestoreSession(&s)
+	scan.RestoreSession(&s)
 
 	log.Println("[Scan Radius Serivce] Received scan session request", s.ID, "for", s.ScansReq, "scans at", s.ZLine.Origin, "keeping the best", s.MinScore*100, "%")
 
@@ -51,7 +52,7 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 
 	running := true
 	// Returning a non-nil error will automatically send a REQ command to NSQ to re-queue the message.
-	go scanner.ScanAndPublish(h.ctx, &s)
+	go scan.ScanAndPublish(h.ctx, &s)
 
 	for running {
 		select {
@@ -89,7 +90,7 @@ func main() {
 	handler := &scanRadiusHandler{}
 
 	log.Println("Watching for sessions on", sessionTopic, "publishing to", resultTopic)
-	go scanner.StartConsumer(ctx, sessionTopic, resultTopic, handler)
+	go util.StartConsumer(ctx, sessionTopic, resultTopic, handler)
 
 	<-sigChan
 	cancel()

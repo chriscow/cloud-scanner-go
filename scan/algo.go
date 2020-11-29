@@ -4,12 +4,13 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"reticle/geom"
 )
 
-func randOrigins(min, max float64, center Vector2, count int) []Vector2 {
-	origins := make([]Vector2, count)
+func randOrigins(min, max float64, center geom.Vector2, count int) []geom.Vector2 {
+	origins := make([]geom.Vector2, count)
 	for i := range origins {
-		origins[i] = Vector2{
+		origins[i] = geom.Vector2{
 			X: min + rand.Float64()*(max-min) + center.X,
 			Y: min + rand.Float64()*(max-min) + center.Y,
 		}
@@ -29,7 +30,7 @@ func wrapDegrees(deg float64) float64 {
 	return deg
 }
 
-func allAngles(lattice, origin Vector2, zero, limit float64) (theta1, theta2 float64) {
+func allAngles(lattice, origin geom.Vector2, zero, limit float64) (theta1, theta2 float64) {
 	xSq := (lattice.X - origin.X) * (lattice.X - origin.X)
 	ySq := (lattice.Y - origin.Y) * (lattice.Y - origin.Y)
 	zSq := zero * zero
@@ -48,7 +49,7 @@ func allAngles(lattice, origin Vector2, zero, limit float64) (theta1, theta2 flo
 }
 
 // calculate a single result
-func calculate(origin Vector2, lattice []Vector2, zeros []float64, latticeParams interface{}, limit float64, bucketCount int) [][]int {
+func calculate(origin geom.Vector2, lattice []geom.Vector2, zeros []float64, latticeParams interface{}, limit float64, bucketCount int) [][]int {
 	buckets := make([][]int, bucketCount)
 	for i := range buckets {
 		buckets[i] = make([]int, len(zeros))
@@ -81,7 +82,7 @@ func calculate(origin Vector2, lattice []Vector2, zeros []float64, latticeParams
 	return buckets
 }
 
-func calculateTest(origin Vector2, lattice []Vector2, zeros *Zeros, latticeParams interface{}, limit float64, bucketCount int) [][]int {
+func calculateTest(origin geom.Vector2, lattice []geom.Vector2, zeros geom.Zeros, latticeParams interface{}, limit float64, bucketCount int) [][]int {
 	buckets := make([][]int, bucketCount)
 	for i := range buckets {
 		buckets[i] = make([]int, zeros.Count)

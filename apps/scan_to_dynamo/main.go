@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -23,18 +22,18 @@ func checkEnv() {
 func main() {
 	checkEnv()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// ctx, cancel := context.WithCancel(context.Background())
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	handler := &scanRadiusHandler{}
+	// handler := &scanRadiusHandler{}
 
-	go startConsumer(ctx, "scan-session", "scan-radius-scanner", handler)
+	// go util.StartConsumer(ctx, "scan-session", "scan-radius-scanner", handler)
 
 	select {
 	case <-sigChan:
-		cancel()
+		// cancel()
 	default:
 	}
 }
