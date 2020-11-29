@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	resultTopic = "scan-radius"
+	resultTopic = "scan-radius-results"
 	myChannel   = "result-to-dynamo"
 )
 

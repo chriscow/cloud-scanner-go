@@ -1,77 +1,102 @@
-package scan
+package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
-	"math"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
+	"net/http"
+	"reticle/geom"
+	"reticle/scan"
 	"time"
 
+	"github.com/go-chi/render"
 	"github.com/nsqio/go-nsq"
-	"github.com/shamaton/msgpack"
-	"github.com/urfave/cli/v2"
 )
 
-var (
-	distances = []float64{.5, 1, 2, 4, 8, 16, 32, 64, math.MaxFloat64}
+const (
+	sessionTopic = "scan-session"
 )
 
-// Run starts a scan based on the Session parameters and publishes
-// the results to the NSQ message bus in the scan-radius-results topic
-func Run(ctx context.Context, topic string, s *Session) error {
-	ch, err := s.Start()
-	if err != nil {
-		return err
+// SessionPayload ...
+type SessionPayload struct {
+	*scan.Session
+}
+
+// Bind on SessionPayload allows post-processing after unmarshalling
+func (s *SessionPayload) Bind(r *http.Request) error {
+	if s.Session == nil {
+		return errors.New("missing required Session field")
 	}
 
-	count := 0
-	running := true
-
-	// Instantiate a producer.
-	config := nsq.NewConfig()
-	producer, err := nsq.NewProducer("127.0.0.1:4150", config) // always produce to the local queue
-	if err != nil {
-		log.Fatal(err)
+	if s.Session.ID == 0 {
+		s.Session.ID = time.Now().Unix()
 	}
-
-	for running {
-		select {
-		case result, ok := <-ch:
-			if !ok {
-				log.Println("Channel closed. Stopping")
-				producer.Stop()
-				running = false
-			} else {
-				count++
-				body, err := msgpack.Encode(result)
-				err = producer.Publish(topic, body)
-				if err != nil {
-					producer.Stop()
-					return err
-				}
-			}
-
-		case <-ctx.Done():
-			producer.Stop()
-			return ctx.Err()
-		default:
-		}
-	}
-
-	log.Println("Published", count, "points with a score >", s.MinScore*100, "% at", s.ScansPerSec, "scans/sec in", s.TotalTime)
 
 	return nil
+}
+
+// Render on SessionPayload allows pre-processing before a response is marshalled
+// and sent across the wire
+func (s *SessionPayload) Render(w http.ResponseWriter, r *http.Request) error {
+	// s.Elapsed = ... for example
+	return nil
+}
+
+func getDefaultSession(w http.ResponseWriter, r *http.Request) {
+	session := &scan.Session{
+		ZLine: geom.ZLine{
+			Zeros: []geom.Zeros{
+				geom.Zeros{
+					ZeroType: geom.Primes,
+					Scalar:   1,
+				},
+			},
+		},
+		Radius:        1,
+		DistanceLimit: 1,
+		BucketCount:   3600,
+		ScansReq:      1000,
+	}
+
+	payload := SessionPayload{Session: session}
+
+	render.Render(w, r, &payload)
+}
+
+func startSession(w http.ResponseWriter, r *http.Request) {
+	payload := &SessionPayload{}
+	if err := render.Bind(r, payload); err != nil {
+		render.Render(w, r, ErrInvalidRequest(err))
+		return
+	}
+
+	config := nsq.NewConfig()
+	producer, err := nsq.NewProducer("127.0.0.1:4150", config)
+	if err != nil {
+		render.Render(w, r, ErrServerError("NewProducer", err))
+	}
+
+	body, err := json.Marshal(*payload.Session)
+	if err != nil {
+		render.Render(w, r, ErrServerError("Marshal", err))
+	}
+
+	err = producer.Publish(sessionTopic, body)
+	if err != nil {
+		render.Render(w, r, ErrServerError("Publish", err))
+		return
+	}
+
+	render.Status(r, http.StatusCreated)
+	render.Render(w, r, payload)
+}
+
+func getSession(w http.ResponseWriter, r *http.Request) {
 }
 
 // scanLatticeCmd generates scan-radius sessions and publishes them to the
 // channel returned.  Each session contains a different origin such that all the
 // scan sessions will completely cover the lattice.
+/*
 func scanLatticeCmd(ctx *cli.Context) error {
 	if ctx.NArg() < 2 {
 		return errors.New("Expected lattice and one or more zeros")
@@ -138,3 +163,4 @@ func scanLatticeCmd(ctx *cli.Context) error {
 
 	return nil
 }
+*/

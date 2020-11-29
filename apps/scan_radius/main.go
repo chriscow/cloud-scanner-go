@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	sessionTopic = "scan-session"
-	resultTopic  = "scan-radius-results"
+	sessionTopic = "scan-session"        // subscribe to this topic for scan requests
+	resultTopic  = "scan-radius-results" // publish results to this topic
 )
 
 type scanRadiusHandler struct{}
@@ -46,7 +46,7 @@ func (h scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 
 	running := true
 
-	go scan.Publish(ctx, resultTopic, &s)
+	go scan.Run(ctx, resultTopic, &s)
 
 loop:
 	for running {
