@@ -1,11 +1,11 @@
-package scanner
+package util
 
 import (
 	"log"
 	"net"
 )
 
-// GetLocalIPs returns all IPs on the local host
+// getLocalIPs returns all IPs on the local host
 func getLocalIPs() []net.IP {
 	ips := make([]net.IP, 0, 12)
 

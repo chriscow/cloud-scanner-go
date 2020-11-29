@@ -1,4 +1,4 @@
-package scanner
+package util
 
 import (
 	"context"
@@ -7,6 +7,9 @@ import (
 	"github.com/nsqio/go-nsq"
 )
 
+// StartConsumer is a helper function that starts consuming a topic from NSQ. It
+// will block until the context.Done() channel closes / receives a value at which
+// point it gracefully shuts down the consumer.
 func StartConsumer(ctx context.Context, topic, channel string, handler nsq.Handler) error {
 	// Instantiate a consumer that will subscribe to the provided channel.
 	config := nsq.NewConfig()
