@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"reticle/scan"
+	"reticle/util"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,7 +16,30 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/joho/godotenv"
+	"github.com/nsqio/go-nsq"
 )
+
+const (
+	resultTopic = "scan-radius"
+	myChannel   = "result-to-dynamo"
+)
+
+type resultHandler struct{}
+
+func (h resultHandler) HandleMessage(msg *nsq.Message) error {
+	if len(msg.Body) == 0 {
+		// Returning nil will automatically send a FIN command to NSQ to mark the message as processed.
+		// In this case, a message with an empty body is simply ignored/discarded.
+		return nil
+	}
+
+	s := scan.Result{}
+	if err := json.Unmarshal(msg.Body, &s); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func checkEnv() {
 	godotenv.Load()
@@ -22,20 +49,15 @@ func checkEnv() {
 func main() {
 	checkEnv()
 
-	// ctx, cancel := context.WithCancel(context.Background())
-
+	ctx, cancel := context.WithCancel(context.Background())
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// handler := &scanRadiusHandler{}
+	handler := resultHandler{}
+	go util.StartConsumer(ctx, resultTopic, myChannel, handler)
 
-	// go util.StartConsumer(ctx, "scan-session", "scan-radius-scanner", handler)
-
-	select {
-	case <-sigChan:
-		// cancel()
-	default:
-	}
+	<-sigChan
+	cancel()
 }
 
 func exampleMarshal() {

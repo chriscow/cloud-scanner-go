@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -22,15 +21,9 @@ const (
 	resultTopic  = "scan-radius-results"
 )
 
-type scanRadiusHandler struct {
-	ctx context.Context
-}
+type scanRadiusHandler struct{}
 
-func NewHandler(ctx context.Context) *scanRadiusHandler {
-	return &scanRadiusHandler{ctx: ctx}
-}
-
-func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
+func (h scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 	if len(msg.Body) == 0 {
 		// Returning nil will automatically send a FIN command to NSQ to mark the message as processed.
 		// In this case, a message with an empty body is simply ignored/discarded.
@@ -42,7 +35,8 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 		return err
 	}
 
-	scan.RestoreSession(&s)
+	ctx, cancel := context.WithCancel(context.Background())
+	scan.Restore(ctx, &s)
 
 	log.Println("[Scan Radius Serivce] Received scan session request", s.ID, "for", s.ScansReq, "scans at", s.ZLine.Origin, "keeping the best", s.MinScore*100, "%")
 
@@ -51,9 +45,10 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 	timer := time.NewTimer(30 * time.Second)
 
 	running := true
-	// Returning a non-nil error will automatically send a REQ command to NSQ to re-queue the message.
-	go scan.ScanAndPublish(h.ctx, &s)
 
+	go scan.Publish(ctx, resultTopic, &s)
+
+loop:
 	for running {
 		select {
 		case <-timer.C:
@@ -61,13 +56,13 @@ func (h *scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 				log.Println("Touching message")
 				msg.Touch()
 			}
-		case <-h.ctx.Done():
-			s.Stop()
-			msg := fmt.Sprint("\nCanceled by user.")
-			log.Fatal(msg)
+		case <-ctx.Done():
+			log.Println("\nCanceled by user.")
+			break loop
 		}
 	}
 
+	cancel()
 	return nil
 }
 
@@ -87,7 +82,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	handler := &scanRadiusHandler{}
+	handler := scanRadiusHandler{}
 
 	log.Println("Watching for sessions on", sessionTopic, "publishing to", resultTopic)
 	go util.StartConsumer(ctx, sessionTopic, resultTopic, handler)

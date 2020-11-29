@@ -28,12 +28,10 @@ type Session struct {
 	MinScore      float64
 	wg            *sync.WaitGroup
 	ctx           context.Context
-	cancel        context.CancelFunc
 }
 
 // NewSession creates and initializes a new Session
-func NewSession(id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
-	cctx, cancel := context.WithCancel(context.Background())
+func NewSession(ctx context.Context, id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimit, minScore float64, scansReq, bucketCount int) *Session {
 
 	s := &Session{
 		ID:            id,
@@ -46,18 +44,17 @@ func NewSession(id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimi
 		MinScore:      minScore,
 		ScansReq:      scansReq,
 		wg:            &sync.WaitGroup{},
-		ctx:           cctx,
-		cancel:        cancel,
+		ctx:           ctx,
 	}
 
 	s.wg.Add(s.ProcCount)
 	return s
 }
 
-// RestoreSession rebuilds a Session from a deserialized Session from the message
+// Restore rebuilds a Session from a deserialized Session from the message
 // bus (basically the zeros values and lattice points are not there when
 // serialized to the message bus)
-func RestoreSession(s *Session) error {
+func Restore(ctx context.Context, s *Session) error {
 
 	s.ProcCount = runtime.GOMAXPROCS(0)
 
@@ -79,14 +76,85 @@ func RestoreSession(s *Session) error {
 	s.ZLine.Zeros = zeros
 	s.wg = &sync.WaitGroup{}
 	s.wg.Add(s.ProcCount)
-	ctx, cancel := context.WithCancel(context.Background())
 	s.ctx = ctx
-	s.cancel = cancel
 	return nil
 }
 
+// Start starts scanning using the session's parameters
+func (s *Session) Start() (<-chan Result, error) {
+
+	resCh := make(chan Result, s.ScansReq)
+
+	maxZero := s.ZLine.MaxZeroVal()
+	filtered := s.Lattice.Filter(s.ZLine.Origin, s.Radius, maxZero, s.DistanceLimit)
+
+	start := time.Now()
+
+	go func() {
+		defer close(resCh)
+
+		for i := 0; i < s.ProcCount; i++ {
+			go s.scanJob(i, filtered, resCh)
+		}
+
+		s.wg.Wait()
+
+		elapsed := time.Since(start)
+		s.TotalTime = elapsed
+		s.ScansPerSec = int(math.Round(float64(s.ScansReq) / elapsed.Seconds()))
+	}()
+
+	return resCh, nil
+}
+
+func (s *Session) scanJob(id int, filtered []g.Vector2, resCh chan<- Result) {
+
+	count := s.ScansReq / s.ProcCount
+	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
+	log.Println("[Job:", id, "] started scanning", count, "origins")
+
+	// need the same origin for all zeros in the zline so we
+	// can do a diff result
+	for _, origin := range origins {
+
+		zero := s.ZLine.Zeros[0]
+
+		buckets := calculate(origin, filtered, zero.Values, s.Lattice.Parameters,
+			s.DistanceLimit, s.BucketCount)
+
+		best := getBestBuckets(buckets)
+		for _, hits := range best {
+			result := CreateResult(s.ID, s.BucketCount, origin, zero.ZeroType, zero.Count, hits)
+			if result.Score >= s.MinScore {
+				resCh <- result
+			}
+		}
+
+		// if len(s.ZLine.Zeros) == 2 {
+		// 	// TODO: create a diff result
+		// 	}
+		// }
+
+		// TODO: handle more zeros if there are any
+		// if len(s.ZLine.Zeros) > 2 {
+		// 	log.Fatal("TODO: handle remaining zeros or reject request")
+		// }
+
+		// check if we have been canceled
+		select {
+		case <-s.ctx.Done():
+			s.wg.Done()
+			return
+		default:
+		}
+	}
+
+	s.wg.Done()
+	// log.Println("[Job:", id, "] done")
+}
+
 // sessionFromCLI creates a session from CLI arguments and flags
-func sessionFromCLI(ctx *cli.Context) (*Session, error) {
+func sessionFromCLI(cctx context.Context, ctx *cli.Context) (*Session, error) {
 
 	var lt g.LatticeType
 	lt, err := lt.GetLType(ctx.Args().Get(0))
@@ -128,82 +196,5 @@ func sessionFromCLI(ctx *cli.Context) (*Session, error) {
 		return nil, err
 	}
 
-	return NewSession(0, zline, lattice, radius, distanceLimit, minScore, scanCount, buckets), nil
-}
-
-// Start starts scanning using the session's parameters
-func (s *Session) Start() (<-chan Result, error) {
-
-	resCh := make(chan Result, s.ScansReq)
-
-	maxZero := s.ZLine.MaxZeroVal()
-	filtered := s.Lattice.Filter(s.ZLine.Origin, s.Radius, maxZero, s.DistanceLimit)
-
-	start := time.Now()
-
-	go func() {
-		defer close(resCh)
-
-		for i := 0; i < s.ProcCount; i++ {
-			go s.scanJob(i, filtered, resCh)
-		}
-
-		s.wg.Wait()
-
-		elapsed := time.Since(start)
-		s.TotalTime = elapsed
-		s.ScansPerSec = int(math.Round(float64(s.ScansReq) / elapsed.Seconds()))
-	}()
-
-	return resCh, nil
-}
-
-// Stop cancels a currently running scan
-func (s *Session) Stop() {
-	s.cancel()
-}
-
-func (s *Session) scanJob(id int, filtered []g.Vector2, resCh chan<- Result) {
-
-	count := s.ScansReq / s.ProcCount
-	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
-	log.Println("[Job:", id, "] started scanning", count, "origins")
-
-	// need the same origin for all zeros in the zline so we
-	// can do a diff result
-	for _, origin := range origins {
-
-		zero := s.ZLine.Zeros[0]
-
-		buckets := calculate(origin, filtered, zero.Values, s.Lattice.Parameters,
-			s.DistanceLimit, s.BucketCount)
-
-		best := getBestBuckets(buckets)
-		for _, hits := range best {
-			result := CreateResult(s.ID, s.BucketCount, origin, zero.ZeroType, zero.Count, hits)
-			if result.Score >= s.MinScore {
-				resCh <- result
-			}
-		}
-
-		// if len(s.ZLine.Zeros) == 2 {
-		// 	// TODO: create a diff result
-		// 	}
-		// }
-
-		// TODO: handle more zeros if there are any
-		// if len(s.ZLine.Zeros) > 2 {
-		// 	log.Fatal("TODO: handle remaining zeros or reject request")
-		// }
-
-		// check if we have been canceled
-		select {
-		case <-s.ctx.Done():
-			break
-		default:
-		}
-	}
-
-	s.wg.Done()
-	// log.Println("[Job:", id, "] done")
+	return NewSession(cctx, 0, zline, lattice, radius, distanceLimit, minScore, scanCount, buckets), nil
 }
