@@ -1,4 +1,4 @@
-package scanner
+package geom
 
 import (
 	"encoding/json"
@@ -45,15 +45,6 @@ type Zeros struct {
 	Values    []float64 `json:"-"`
 }
 
-// ZLine is a number line in space starting at the specified origin and rotated
-// about the origin by the specified angle in degrees
-type ZLine struct {
-	Origin Vector2
-	Angle  float64
-	Limit  float64
-	Zeros  []*Zeros
-}
-
 // String returns the string representation of the ZeroType enum
 func (z ZeroType) String() string {
 	return [...]string{
@@ -86,59 +77,30 @@ func (z ZeroType) GetZType(name string) (ZeroType, error) {
 	}
 }
 
-// NewZLine creates and initializes a zline
-func NewZLine(origin Vector2, zeros []ZeroType, limit, scale float64, neg bool) (*ZLine, error) {
-	zline := &ZLine{
-		Origin: origin,
-		Limit:  limit,
-		Zeros:  make([]*Zeros, 0),
-	}
-
-	for _, ztype := range zeros {
-		zero, err := LoadZeros(ztype, limit, scale, neg)
-		if err != nil {
-			return nil, err
-		}
-
-		zline.Zeros = append(zline.Zeros, zero)
-	}
-
-	return zline, nil
-}
-
-// MaxZeroVal returns the largest zero value on the ZLine
-func (z *ZLine) MaxZeroVal() float64 {
-	var maxZero float64
-	for _, zero := range z.Zeros {
-		if zero.Values[len(zero.Values)-1] > maxZero {
-			maxZero = zero.Values[len(zero.Values)-1]
-		}
-	}
-	return maxZero
-}
-
 // LoadZeros loads the numeric values from a data file and returns the indicated
 // numeric type up to the maxValue, scaled by the scale value.
 // The maxValue is the maximum value loaded before scaling.
-func LoadZeros(ztype ZeroType, maxValue, scale float64, neg bool) (*Zeros, error) {
+func LoadZeros(ztype ZeroType, maxValue, scale float64, neg bool) (Zeros, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	path := cwd + "/data/zeros/" + ztype.String() + ".x1.0000"
-	values, err := loadLocal(path, maxValue, scale, neg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Zeros{
+	zeros := Zeros{
 		ZeroType:  ztype,
 		Scalar:    scale,
 		Negatives: neg,
-		Count:     len(values),
-		Values:    values,
-	}, nil
+	}
+
+	path := cwd + "/data/zeros/" + ztype.String() + ".x1.0000"
+	values, err := loadLocal(path, maxValue, scale, neg)
+	if err != nil {
+		return zeros, err
+	}
+
+	zeros.Count = len(values)
+	zeros.Values = values
+	return zeros, nil
 }
 
 func loadLocal(path string, maxValue float64, scale float64, neg bool) ([]float64, error) {
