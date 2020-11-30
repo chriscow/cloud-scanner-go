@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
+	"log"
 	"os"
+	"reticle/scan"
 
 	"github.com/nsqio/go-nsq"
 )
@@ -11,7 +14,9 @@ const (
 )
 
 type wsMsgHandler struct {
-	hub *Hub
+	hub     *Hub
+	topic   string
+	channel string
 }
 
 func (h *wsMsgHandler) HandleMessage(msg *nsq.Message) error {
@@ -19,8 +24,16 @@ func (h *wsMsgHandler) HandleMessage(msg *nsq.Message) error {
 		return nil
 	}
 
+	r := scan.Result{}
+	err := json.Unmarshal(msg.Body, &r)
+	if err != nil {
+		log.Println(err)
+	}
+
 	// broadcast the message to all connected clients
-	h.hub.broadcast <- msg.Body
+	if len(h.hub.clients) > 0 {
+		h.hub.broadcast <- msg.Body
+	}
 
 	return nil
 }
@@ -35,7 +48,7 @@ func startConsumer(hub *Hub, topic, channel string) (*nsq.Consumer, error) {
 
 	// Set the Handler for messages received by this Consumer. Can be called multiple times.
 	// See also AddConcurrentHandlers.
-	h := &wsMsgHandler{}
+	h := &wsMsgHandler{hub: hub, topic: topic, channel: channel}
 	consumer.AddHandler(h)
 
 	// Use nsqlookupd to discover nsqd instances.

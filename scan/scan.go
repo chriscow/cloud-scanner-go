@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/nsqio/go-nsq"
-	"github.com/shamaton/msgpack"
 	"github.com/urfave/cli/v2"
 )
 
@@ -62,7 +61,7 @@ func Run(parent context.Context, topic string, s *Session) (<-chan bool, error) 
 					done <- true
 				} else {
 					count++
-					body, err := msgpack.Encode(result)
+					body, err := json.Marshal(result)
 					err = producer.Publish(topic, body)
 					if err != nil {
 						cancel()

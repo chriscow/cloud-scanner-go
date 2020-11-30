@@ -37,8 +37,8 @@ func (r Result) String() string {
 
 // SetSlug returns a partial unique identifier for a key-value store
 func SetSlug(procid, originid int, r *Result) {
-	score := int((r.Score * 100) / 100)
-	r.Slug = fmt.Sprintf("%i-%i-%i-%i", r.SessionID, score, procid, originid)
+	score := int(r.Score * 100)
+	r.Slug = fmt.Sprintf("%d-%02d-%d-%d", r.SessionID, score, procid, originid)
 }
 
 // bucketHits holds the tally of hits from within a bucket
