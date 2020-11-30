@@ -20,7 +20,7 @@
             "request": "launch",
             "mode": "auto",
             "cwd": "${workspaceFolder}",
-            "program": "${workspaceFolder}/apps/scan_radius/.",
+            "program": "${workspaceFolder}/apps/scanner/.",
             "env": {},
             "args": []
         }
