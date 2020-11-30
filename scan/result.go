@@ -11,6 +11,7 @@ import (
 
 // Result holds the data from a single scan and is serialized with MessagePack
 type Result struct {
+	ID            int64
 	SessionID     int64
 	Origin        geom.Vector2
 	ZeroType      geom.ZeroType
@@ -34,6 +35,11 @@ func (r Result) String() string {
 		" origin:", r.Origin, r.ZeroType)
 }
 
+// Key returns a unique identifier for a key-value store
+func (r Result) Key() string {
+	return fmt.Sprintf("%i-%i-%i", r.SessionID, r.Score, r.ID)
+}
+
 // bucketHits holds the tally of hits from within a bucket
 type bucketHits struct {
 	Bucket int
@@ -48,7 +54,7 @@ func (zh bucketHits) String() string {
 
 // CreateResult creates a regular `zeros hit` result and scores it on the
 // percentage of zeros hit to total zeros
-func CreateResult(id int64, bucketCount int, origin geom.Vector2, ztype geom.ZeroType, zcount int, bh bucketHits) Result {
+func CreateResult(id int64, procid, originid, bucketCount int, origin geom.Vector2, ztype geom.ZeroType, zcount int, bh bucketHits) Result {
 	if origin.X == 0 && origin.Y == 0 {
 		msg := fmt.Sprint("[createResult] received 0,0 origin")
 		log.Println(msg)
@@ -61,6 +67,7 @@ func CreateResult(id int64, bucketCount int, origin geom.Vector2, ztype geom.Zer
 	theta := math.Round(bh.Theta*places) / places
 
 	return Result{
+		ID: TODO: generate some kind of ID.  maybe make it a string
 		SessionID:  id,
 		Origin:     origin,
 		ZeroType:   ztype,

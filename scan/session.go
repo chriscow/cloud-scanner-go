@@ -115,15 +115,15 @@ func (s *Session) Start(ctx context.Context) (<-chan Result, error) {
 // meet the minimum score criteria. The number of random origins generated is
 // determined by dividing the scans requested by the processor count, assuming
 // scanJob will be called once per processor.
-func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, id int, filtered []g.Vector2, resCh chan<- Result) {
+func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, procid int, filtered []g.Vector2, resCh chan<- Result) {
 
 	count := s.ScansReq / s.ProcCount
 	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
-	log.Println("[Job:", id, "] started scanning", count, "origins")
+	log.Println("[Job:", procid, "] started scanning", count, "origins")
 
 	// need the same origin for all zeros in the zline so we
 	// can do a diff result
-	for _, origin := range origins {
+	for i, origin := range origins {
 
 		zero := s.ZLine.Zeros[0]
 
@@ -132,7 +132,7 @@ func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, id int, filte
 
 		best := getBestBuckets(buckets)
 		for _, hits := range best {
-			result := CreateResult(s.ID, s.BucketCount, origin, zero.ZeroType, zero.Count, hits)
+			result := CreateResult(s.ID, procid, i, s.BucketCount, origin, zero.ZeroType, zero.Count, hits)
 			if result.Score >= s.MinScore {
 				resCh <- result
 			}

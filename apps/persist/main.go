@@ -15,13 +15,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	badger "github.com/dgraph-io/badger/v2"
 	"github.com/joho/godotenv"
 	"github.com/nsqio/go-nsq"
 )
 
+var (
+	db badger.DB
+)
+
 const (
-	resultTopic = "scan-radius-results"
-	myChannel   = "result-to-dynamo"
+	myChannel = "persist"
 )
 
 type resultHandler struct{}
@@ -33,7 +37,32 @@ func (h resultHandler) HandleMessage(msg *nsq.Message) error {
 		return nil
 	}
 
-	s := scan.Result{}
+	res := scan.Result{}
+	if err := json.Unmarshal(msg.Body, &res); err != nil {
+		return err
+	}
+
+	err := db.Update(func(tx *badger.Txn) error {
+		return tx.Set([]byte(res.Key()), msg.Body)
+	})
+
+	if err != nil {
+		log.Println("error getting badger transaction", err)
+	}
+
+	return err
+}
+
+type sessionHandler struct{}
+
+func (h sessionHandler) HandleMessage(msg *nsq.Message) error {
+	if len(msg.Body) == 0 {
+		// Returning nil will automatically send a FIN command to NSQ to mark the message as processed.
+		// In this case, a message with an empty body is simply ignored/discarded.
+		return nil
+	}
+
+	s := scan.Session{}
 	if err := json.Unmarshal(msg.Body, &s); err != nil {
 		return err
 	}
@@ -53,8 +82,19 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	handler := resultHandler{}
-	go util.StartConsumer(ctx, resultTopic, myChannel, handler)
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db, err := badger.Open(badger.DefaultOptions(cwd + "/data/badger"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	rh := resultHandler{}
+	go util.StartConsumer(ctx, scan.ResultTopic, myChannel, rh)
 
 	<-sigChan
 	cancel()

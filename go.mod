@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/atedja/go-vector v0.0.0-20170318030839-a887ff7bead7
 	github.com/aws/aws-sdk-go v1.35.35
+	github.com/dgraph-io/badger/v2 v2.2007.2
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/docgen v1.0.5
 	github.com/go-chi/render v1.0.1
