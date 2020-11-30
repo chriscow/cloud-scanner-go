@@ -43,7 +43,7 @@ func (h resultHandler) HandleMessage(msg *nsq.Message) error {
 	}
 
 	err := db.Update(func(tx *badger.Txn) error {
-		return tx.Set([]byte(res.Key()), msg.Body)
+		return tx.Set([]byte(res.Slug), msg.Body)
 	})
 
 	if err != nil {

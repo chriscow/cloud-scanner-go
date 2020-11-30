@@ -47,10 +47,14 @@ import (
 	"github.com/go-chi/render"
 )
 
+var addr = flag.String("addr", ":3333", "http service address")
 var routes = flag.Bool("routes", false, "Generate router documentation")
 
 func main() {
 	flag.Parse()
+
+	hub := newHub()
+	go hub.run()
 
 	r := chi.NewRouter()
 
@@ -69,11 +73,10 @@ func main() {
 		r.Post("/", startSession)
 	})
 
-	r.Get("/result/ws", wsHandler)
-
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
+	r.Get("/", serveHome)
+	r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
+		serveWs(hub, w, r)
 	})
 
-	http.ListenAndServe(":3333", r)
+	http.ListenAndServe(*addr, r)
 }
