@@ -47,11 +47,6 @@ import (
 	"github.com/go-chi/render"
 )
 
-const (
-	sessionTopic = "scan-session"
-	resultsTopic = "scan-radius-results"
-)
-
 var routes = flag.Bool("routes", false, "Generate router documentation")
 
 func main() {

@@ -78,7 +78,7 @@ func startSession(w http.ResponseWriter, r *http.Request) {
 		render.Render(w, r, ErrServerError("Marshal", err))
 	}
 
-	err = producer.Publish(sessionTopic, body)
+	err = producer.Publish(scan.SessionTopic, body)
 	if err != nil {
 		render.Render(w, r, ErrServerError("Publish", err))
 		return

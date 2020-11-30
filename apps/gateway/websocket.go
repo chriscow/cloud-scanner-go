@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reticle/scan"
 	"time"
 
 	"github.com/nsqio/go-nsq"
@@ -13,6 +14,7 @@ import (
 )
 
 const (
+	wsChannel  = "websocket"
 	writeWait  = 10 * time.Second
 	pingPeriod = 60 * time.Second
 )
@@ -45,7 +47,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Instantiate a consumer that will subscribe to the provided channel.
 	config := nsq.NewConfig()
-	consumer, err := nsq.NewConsumer(resultsTopic, "client-websocket", config)
+	consumer, err := nsq.NewConsumer(scan.ResultTopic, wsChannel, config)
 	if err != nil {
 		render.Render(w, r, ErrServerError("NewConsumer", err))
 		return

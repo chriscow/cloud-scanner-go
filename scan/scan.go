@@ -18,6 +18,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const (
+	SessionTopic  = "session-request"  // subscribe to this topic for scan requests
+	ResultTopic   = "results"          // publish results to this topic
+	CompleteTopic = "session-complete" // completed sessions topic
+)
+
 var (
 	distances = []float64{.5, 1, 2, 4, 8, 16, 32, 64, math.MaxFloat64}
 )

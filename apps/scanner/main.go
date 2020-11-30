@@ -17,10 +17,8 @@ import (
 )
 
 const (
-	sessionTopic   = "scan-session"        // subscribe to this topic for scan requests
-	sessionChannel = "radius-scanner"      // channel for the above topic (who am I?)
-	resultTopic    = "scan-radius-results" // publish results to this topic
-	touchSec       = 30                    // touch the message every so often
+	scannerChannel = "scanner" // channel for the above topic (who am I?)
+	touchSec       = 30        // touch the message every so often
 )
 
 type scanRadiusHandler struct{}
@@ -48,7 +46,7 @@ func (h scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 	cctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	done, err := scan.Run(cctx, resultTopic, &s)
+	done, err := scan.Run(cctx, scan.ResultTopic, &s)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,7 +79,7 @@ func sessionComplete(s scan.Session) error {
 		return err
 	}
 
-	return producer.Publish("session-complete", body)
+	return producer.Publish(scan.CompleteTopic, body)
 }
 
 func checkEnv() {
@@ -102,8 +100,8 @@ func main() {
 
 	handler := scanRadiusHandler{}
 
-	log.Println("Watching for sessions on", sessionTopic, "publishing to", resultTopic)
-	go util.StartConsumer(ctx, sessionTopic, sessionChannel, handler)
+	log.Println("Watching for sessions on", scan.SessionTopic, "publishing to", scan.ResultTopic)
+	go util.StartConsumer(ctx, scan.SessionTopic, scannerChannel, handler)
 
 	<-sigChan
 	cancel()
