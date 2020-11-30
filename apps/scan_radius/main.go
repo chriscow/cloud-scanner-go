@@ -64,7 +64,24 @@ loop:
 		}
 	}
 
+	sessionComplete(s)
 	return nil // auto-ack the msg
+}
+
+func sessionComplete(s scan.Session) error {
+	config := nsq.NewConfig()
+	producer, err := nsq.NewProducer("127.0.0.1:4150", config)
+	if err != nil {
+		return err
+	}
+	defer producer.Stop()
+
+	body, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+
+	return producer.Publish("session-complete", body)
 }
 
 func checkEnv() {
