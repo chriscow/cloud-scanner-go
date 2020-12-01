@@ -58,7 +58,7 @@ loop:
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("[scanner] touching session message", now)
+			log.Println("[scanner] touching session message")
 			msg.Touch()
 		case <-done:
 			log.Println("[scanner] done signaled")

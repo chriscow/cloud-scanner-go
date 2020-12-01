@@ -4,6 +4,15 @@
 
 package main
 
+import (
+	"log"
+	"reticle/scan"
+
+	"github.com/nsqio/go-nsq"
+)
+
+var consumer *nsq.Consumer
+
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
 type Hub struct {
@@ -34,10 +43,22 @@ func (h *Hub) run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
+			var err error
+			if consumer == nil {
+				consumer, err = startConsumer(h, scan.ResultTopic, "websocket")
+				if err != nil {
+					log.Fatal("[hub] failed to start consumer", err)
+				}
+			}
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				close(client.send)
+
+				if len(h.clients) == 0 && consumer != nil {
+					consumer.Stop()
+					consumer = nil
+				}
 			}
 		case message := <-h.broadcast:
 			for client := range h.clients {

@@ -40,9 +40,7 @@ package main
 
 import (
 	"flag"
-	"log"
 	"net/http"
-	"reticle/scan"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -57,12 +55,6 @@ func main() {
 
 	hub := newHub()
 	go hub.run()
-
-	consumer, err := startConsumer(hub, scan.ResultTopic, "websocket")
-	if err != nil {
-		log.Fatal("failed to start consumer", err)
-	}
-	defer consumer.Stop()
 
 	r := chi.NewRouter()
 

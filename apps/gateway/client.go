@@ -55,6 +55,7 @@ type Client struct {
 // reads from this goroutine.
 func (c *Client) readPump() {
 	defer func() {
+		log.Println("[client] readPump exiting")
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -82,6 +83,7 @@ func (c *Client) readPump() {
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
+		log.Println("[client] writePump exiting")
 		ticker.Stop()
 		c.conn.Close()
 	}()
