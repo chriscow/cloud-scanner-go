@@ -82,9 +82,9 @@ func Restore(s *Session) error {
 }
 
 // Start starts scanning using the session's parameters
-func (s *Session) Start(ctx context.Context) (<-chan Result, error) {
+func (s *Session) Start(ctx context.Context) (<-chan []Result, error) {
 
-	resCh := make(chan Result, s.ScansReq)
+	resCh := make(chan []Result, s.ScansReq)
 
 	maxZero := s.ZLine.MaxZeroVal()
 	filtered := s.Lattice.Filter(s.ZLine.Origin, s.Radius, maxZero, s.DistanceLimit)
@@ -94,6 +94,7 @@ func (s *Session) Start(ctx context.Context) (<-chan Result, error) {
 	go func() {
 		defer close(resCh)
 
+		log.Println("[session] starting", s.ProcCount, "scan jobs")
 		wg := &sync.WaitGroup{}
 		wg.Add(s.ProcCount)
 
@@ -115,11 +116,18 @@ func (s *Session) Start(ctx context.Context) (<-chan Result, error) {
 // meet the minimum score criteria. The number of random origins generated is
 // determined by dividing the scans requested by the processor count, assuming
 // scanJob will be called once per processor.
-func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, procid int, filtered []g.Vector2, resCh chan<- Result) {
+func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, procid int, filtered []g.Vector2, resCh chan<- []Result) {
 
 	count := s.ScansReq / s.ProcCount
 	origins := randOrigins(-s.Radius, s.Radius, s.ZLine.Origin, count)
-	log.Println("[Job:", procid, "] started scanning", count, "origins")
+	log.Println("[session] job", procid, " started scanning", count, "origins")
+	results := make([]Result, 0)
+
+	defer func() {
+		if len(results) > 0 {
+			resCh <- results
+		}
+	}()
 
 	// need the same origin for all zeros in the zline so we
 	// can do a diff result
@@ -134,7 +142,12 @@ func (s *Session) scanJob(ctx context.Context, wg *sync.WaitGroup, procid int, f
 		for _, hits := range best {
 			result := CreateResult(s.ID, procid, i, s.BucketCount, origin, zero.ZeroType, zero.Count, hits)
 			if result.Score >= s.MinScore {
-				resCh <- result
+				results = append(results, result)
+
+				if len(results) >= 10 {
+					resCh <- results
+					results = results[:0] // keep array allocated
+				}
 			}
 		}
 

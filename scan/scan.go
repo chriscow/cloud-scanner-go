@@ -37,7 +37,9 @@ func Run(parent context.Context, topic string, s *Session) (<-chan bool, error) 
 		return nil, err
 	}
 
-	count := 0
+	ccb := 0
+	msgCount := 0
+	resultCount := 0
 	running := true
 
 	// Instantiate a producer.
@@ -52,18 +54,21 @@ func Run(parent context.Context, topic string, s *Session) (<-chan bool, error) 
 	go func() {
 		for running {
 			select {
-			case result, ok := <-ch:
+			case results, ok := <-ch:
 				if !ok {
-					log.Println("Channel closed. Stopping")
+					log.Println("[scan] result channel closed. stopping")
 					cancel() // stop the child goroutines
 					producer.Stop()
 					running = false
 					done <- true
 				} else {
-					count++
-					body, err := json.Marshal(result)
+					resultCount += len(results)
+					body, err := json.Marshal(results)
+					ccb += len(body)
+					msgCount++
 					err = producer.Publish(topic, body)
 					if err != nil {
+						log.Println("[scan] publish error", err)
 						cancel()
 						producer.Stop()
 						done <- true
@@ -72,6 +77,7 @@ func Run(parent context.Context, topic string, s *Session) (<-chan bool, error) 
 				}
 
 			case <-parent.Done():
+				log.Println("[scan] parent context complete")
 				cancel()
 				producer.Stop()
 				done <- true
@@ -80,7 +86,8 @@ func Run(parent context.Context, topic string, s *Session) (<-chan bool, error) 
 			}
 		}
 
-		log.Println("Published", count, "points with a score >", s.MinScore*100, "% at", s.ScansPerSec, "scans/sec in", s.TotalTime)
+		log.Println("[scan] Published", resultCount, "points with a score >", s.MinScore*100, "% at", s.ScansPerSec, "scans/sec in", s.TotalTime)
+		log.Println("msgs published", msgCount, "avg msg size", ccb/msgCount, "bytes")
 	}()
 
 	return done, nil

@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
 	"os"
-	"reticle/scan"
 
 	"github.com/nsqio/go-nsq"
 )
@@ -22,12 +19,6 @@ type wsMsgHandler struct {
 func (h *wsMsgHandler) HandleMessage(msg *nsq.Message) error {
 	if len(msg.Body) == 0 {
 		return nil
-	}
-
-	r := scan.Result{}
-	err := json.Unmarshal(msg.Body, &r)
-	if err != nil {
-		log.Println(err)
 	}
 
 	// broadcast the message to all connected clients

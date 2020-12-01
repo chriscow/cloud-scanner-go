@@ -41,8 +41,9 @@ func (h scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 		return err
 	}
 
-	log.Println("[Scan Radius Serivce] Received scan session request", s.ID, "for", s.ScansReq, "scans at", s.ZLine.Origin, "keeping the best", s.MinScore*100, "%")
+	log.Println("[scanner] Received scan session request", s.ID, "for", s.ScansReq, "scans at", s.ZLine.Origin, "keeping the best", s.MinScore*100, "%")
 
+	// BUGBUG: what is cancel() for here? we never really cancel early
 	cctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -51,12 +52,18 @@ func (h scanRadiusHandler) HandleMessage(msg *nsq.Message) error {
 		log.Fatal(err)
 	}
 
+	ticker := time.NewTicker(touchSec * time.Second)
+
 loop:
-	for now := range time.Tick(touchSec * time.Second) {
-		log.Println("Touching message", now)
-		msg.Touch()
+	for {
 		select {
+		case <-ticker.C:
+			log.Println("[scanner] touching session message", now)
+			msg.Touch()
 		case <-done:
+			log.Println("[scanner] done signaled")
+			ticker.Stop()
+			cancel()
 			break loop
 		default:
 		}
@@ -79,6 +86,7 @@ func sessionComplete(s scan.Session) error {
 		return err
 	}
 
+	log.Println("[scanner] publishing completed session")
 	return producer.Publish(scan.CompleteTopic, body)
 }
 
