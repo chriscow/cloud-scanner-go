@@ -18,7 +18,9 @@ crunch on it for the amount of work specified in the message.
 Each message includes a minimum bar that a result must meet to continue.  Results that qualify are dropped onto the message 
 bus and further processed. A Persistence service picks up a copy of these results and serializes them to a database. Separately, 
 one or more QoS services (quality of service) pick up the results, buffer them, sort them ordered by the "best" results 
-and enqueues them and a "best effort" sorted queue back to the Unity client to visualize the progress.
+and enqueues them into a "best effort" sorted queue back to the Unity client to visualize the progress.
+
+The Unity client receives the results over a persistent websocket connection, currently with the Gateway but it could be separate.
 
 ## Installation
 TODO
