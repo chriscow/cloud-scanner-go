@@ -1,8 +1,14 @@
 package geom
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestCanLoadPinwheelVertices(t *testing.T) {
+
+	os.Setenv("SCAN_DATA_PATH", "../data")
+
 	lattice, err := loadLattice(Pinwheel, Vertices)
 	if err != nil {
 		t.Fatal(err)
@@ -21,9 +27,4 @@ func TestCanLoadPinwheelVertices(t *testing.T) {
 		t.Log("expected pinwheel verticies to have 277845 Points but it had", len(lattice.Points))
 		t.Fail()
 	}
-}
-
-func TestFilter(t *testing.T) {
-	t.Log("there is no test for the Filter method")
-	t.Fail()
 }

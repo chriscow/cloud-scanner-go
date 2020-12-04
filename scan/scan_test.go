@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reticle/geom"
+	"testing"
 
 	"github.com/gocarina/gocsv"
 )
@@ -29,7 +31,7 @@ func (s scanTestArg) String() string {
 		" scalar:", s.Scalar, " score:", s.Score)
 }
 
-func compareTest() {
+func compareTest(t *testing.T) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -47,16 +49,28 @@ func compareTest() {
 		panic(err)
 	}
 
-	lattice, _ := NewLattice(Pinwheel, Vertices)
-	zeros, _ := LoadZeros(Primes, 100, 1, false)
+	lattice, _ := geom.NewLattice(geom.Pinwheel, geom.Vertices)
+
+	os.Setenv("SCAN_DATA_PATH", "../data")
+
+	zeros := geom.Zeros{
+		ZeroType:  geom.Primes,
+		Scalar:    1,
+		Negatives: false,
+	}
+	err = geom.LoadZeros(&zeros, 100)
+	if err != nil {
+		t.Log("LoadZeros", err)
+		t.Fail()
+	}
 
 	log.Println(len(zeros.Values), "zeros", zeros.Values[0], zeros.Values[len(zeros.Values)-1])
 
 	maxZero := zeros.Values[len(zeros.Values)-1]
-	points := lattice.Filter(Vector2{}, 1, maxZero, testargs[0].Limit)
+	points := lattice.Filter(geom.Vector2{}, 1, maxZero, testargs[0].Limit)
 
 	for line, arg := range testargs {
-		origin := Vector2{X: arg.X, Y: arg.Y}
+		origin := geom.Vector2{X: arg.X, Y: arg.Y}
 		buckets := calculate(origin, points, zeros.Values, nil, arg.Limit, arg.NumBuckets)
 		best := getBestBuckets(buckets)
 		if len(best) > 1 {

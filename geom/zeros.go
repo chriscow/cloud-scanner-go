@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"math"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -80,40 +80,28 @@ func (z ZeroType) GetZType(name string) (ZeroType, error) {
 // LoadZeros loads the numeric values from a data file and returns the indicated
 // numeric type up to the maxValue, scaled by the scale value.
 // The maxValue is the maximum value loaded before scaling.
-func LoadZeros(ztype ZeroType, maxValue, scale float64, neg bool) (Zeros, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
+func LoadZeros(zeros *Zeros, maxValue float64) error {
+
+	var err error
+	dataPath := os.Getenv("SCAN_DATA_PATH")
+	if dataPath == "" {
+		dataPath, err = os.Getwd()
+		if err != nil {
+			return err
+		}
 	}
 
-	zeros := Zeros{
-		ZeroType:  ztype,
-		Scalar:    scale,
-		Negatives: neg,
-	}
+	values := make([]float64, 0, 256)
 
-	path := cwd + "/data/zeros/" + ztype.String() + ".x1.0000"
-	values, err := loadLocal(path, maxValue, scale, neg)
+	p := path.Join(dataPath, "zeros", zeros.ZeroType.String()+".x1.0000")
+	b, err := ioutil.ReadFile(p)
 	if err != nil {
-		return zeros, err
-	}
-
-	zeros.Count = len(values)
-	zeros.Values = values
-	return zeros, nil
-}
-
-func loadLocal(path string, maxValue float64, scale float64, neg bool) ([]float64, error) {
-	zeros := make([]float64, 0, 256)
-
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+		return err
 	}
 
 	data := make([]float64, 0, 256)
 	if err := json.Unmarshal(b, &data); err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, value := range data {
@@ -122,13 +110,15 @@ func loadLocal(path string, maxValue float64, scale float64, neg bool) ([]float6
 			break
 		}
 
-		zeros = append(zeros, value*scale)
-		if neg {
-			zeros = append(zeros, -value*scale)
+		values = append(values, value*zeros.Scalar)
+		if zeros.Negatives {
+			values = append(values, -value*zeros.Scalar)
 		}
 	}
 
-	return zeros, nil
+	zeros.Count = len(values)
+	zeros.Values = values
+	return nil
 }
 
 func max(vals []float64) float64 {

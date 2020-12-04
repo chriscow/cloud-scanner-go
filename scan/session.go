@@ -57,7 +57,8 @@ func NewSession(id int64, zline g.ZLine, lattice g.Lattice, radius, distanceLimi
 
 // Restore rebuilds a Session from a deserialized Session from the message
 // bus (basically the zeros values and lattice points are not there when
-// serialized to the message bus)
+// serialized to the message bus). Essentially this is reloading the lattice
+// and zeros values in the ZLine
 func Restore(s *Session) error {
 
 	s.ProcCount = runtime.GOMAXPROCS(0)
@@ -68,16 +69,13 @@ func Restore(s *Session) error {
 	}
 	s.Lattice = lattice
 
-	zeros := make([]g.Zeros, 0)
 	for _, z := range s.ZLine.Zeros {
-		zero, err := g.LoadZeros(z.ZeroType, s.ZLine.Limit, z.Scalar, z.Negatives)
+		err := g.LoadZeros(&z, s.ZLine.Limit)
 		if err != nil {
 			return err
 		}
-
-		zeros = append(zeros, zero)
 	}
-	s.ZLine.Zeros = zeros
+
 	return nil
 }
 
@@ -212,7 +210,7 @@ func sessionFromCLI(cctx context.Context, ctx *cli.Context) (*Session, error) {
 
 	minScore := ctx.Float64("min-score")
 
-	zline, err := g.NewZLine(origin, zeros, maxValue, 1, false)
+	zline, err := g.NewZLine(origin, zeros, maxValue, 1, false, 0)
 	if err != nil {
 		return nil, err
 	}

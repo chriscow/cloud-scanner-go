@@ -10,20 +10,26 @@ type ZLine struct {
 }
 
 // NewZLine creates and initializes a zline
-func NewZLine(origin Vector2, zeros []ZeroType, limit, scale float64, neg bool) (ZLine, error) {
+func NewZLine(origin Vector2, zeros []ZeroType, limit, scale float64, neg bool, angle float64) (ZLine, error) {
 	zline := ZLine{
 		Origin: origin,
 		Limit:  limit,
+		Angle:  angle,
 		Zeros:  make([]Zeros, 0),
 	}
 
 	for _, ztype := range zeros {
-		zero, err := LoadZeros(ztype, limit, scale, neg)
+		zeros := Zeros{
+			ZeroType:  ztype,
+			Scalar:    scale,
+			Negatives: neg,
+		}
+		err := LoadZeros(&zeros, limit)
 		if err != nil {
 			return zline, err
 		}
 
-		zline.Zeros = append(zline.Zeros, zero)
+		zline.Zeros = append(zline.Zeros, zeros)
 	}
 
 	return zline, nil

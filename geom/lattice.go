@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/shamaton/msgpack"
@@ -89,15 +90,19 @@ func loadLattice(ltype LatticeType, vtype VertexType) (Lattice, error) {
 	lstr := strings.ToLower(ltype.String())
 	vstr := strings.ToLower(vtype.String())
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
+	var err error
+	dir := os.Getenv("SCAN_DATA_PATH")
+	if dir == "" {
+		dir, err = os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	path := cwd + "/data/lattices/" + lstr + "." + vstr + ".msgpack"
+	p := path.Join(dir, "lattices", lstr+"."+vstr+".msgpack")
 	l := Lattice{}
 
-	b, err := ioutil.ReadFile(path)
+	b, err := ioutil.ReadFile(p)
 	if err != nil {
 		return l, err
 	}

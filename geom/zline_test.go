@@ -1,56 +1,40 @@
 package geom
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
-func TestCanLoad(t *testing.T) {
-	const maxval = 100
-	const scalar = .3
+func TestNewZLineSingle(t *testing.T) {
+	origin := Vector2{}
 
-	for _, zt := range ZeroTypes {
-		zeros, err := LoadZeros(zt, maxval, scalar, false)
+	os.Setenv("SCAN_DATA_PATH", "../data")
+
+	for _, ztype := range ZeroTypes {
+		z := []ZeroType{ztype}
+		zline, err := NewZLine(origin, z, 100, 1, false, 7)
 		if err != nil {
-			t.Log("failed to load zeros for", zt.String(), err)
+			t.Log("NewZLine:", err)
 			t.Fail()
 		}
 
-		if len(zeros.Values) == 0 {
-			t.Log("no zeros returned for type", zt.String())
+		if zline.Limit != 100 {
+			t.Log("expected limit to be 100 was", zline.Limit)
 			t.Fail()
 		}
 
-		if zeros.Values[len(zeros.Values)-1] > maxval/scalar {
-			t.Log("zero value greater than maximum specified")
+		if zline.Origin.X != 0 || zline.Origin.Y != 0 {
+			t.Log("expected zero vector for origin but got", zline.Origin)
 			t.Fail()
 		}
-	}
-}
 
-func TestAllTypesHaveStrings(t *testing.T) {
-	for _, zt := range ZeroTypes {
-		s := zt.String() // will blow up with index out of range
-
-		result := false
-		switch zt {
-		case Primes:
-			result = s == "Primes"
-		case SixNFives:
-			result = s == "SixNFives"
-		case SixN:
-			result = s == "SixN"
-		case Zeta:
-			result = s == "Zeta"
-		case ZetaNorm1:
-			result = s == "ZetaNorm1"
-		case ZetaNorm2:
-			result = s == "ZetaNorm2"
-		case Comp1:
-			result = s == "Comp1"
-		case Comp2:
-			result = s == "Comp2"
+		if len(zline.Zeros) != 1 {
+			t.Log("expected number of zeros to be 1 but was", len(zline.Zeros))
+			t.Fail()
 		}
 
-		if result == false {
-			t.Log("unexpected string / type for: ", s)
+		if zline.Angle != 7 {
+			t.Log("expected angle to be 7 but was", zline.Angle)
 			t.Fail()
 		}
 	}
