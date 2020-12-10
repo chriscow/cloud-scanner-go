@@ -108,7 +108,7 @@ func (s *server) routes() {
 	s.router.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
 		s.appCtx.user.HandleGothLogout(w, r)
 	})
-	
+
 	s.router.Get("/auth/callback", render("login", authCallbackPage))
 	s.router.Get("/auth", render("login", authPage))
 
@@ -158,6 +158,29 @@ func (s *server) staticRoute(staticPath string) {
 		fs := http.StripPrefix(pathPrefix, http.FileServer(public))
 		fs.ServeHTTP(w, r)
 	})
+}
+
+
+// handleSubscribe handles websocket requests to subscribe to an NSQ topic
+func (s *server) handleSubscribe() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		topic := chi.URLParam(r, "topic") 
+		if topic == "" {
+			http.Error(w, "Invalid request", http.StatusNotAcceptable)
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			http.Error(w, "Websocket error:"+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		
+		pub := s.getPublication(topic)
+		sub := newSubscriber(pub, conn)
+		pub.subscribe <- sub
+	}
 }
 
 func (s *server) getPublication(topic string) *publication {

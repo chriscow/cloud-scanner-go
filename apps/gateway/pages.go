@@ -7,6 +7,8 @@ import (
 	"github.com/foolin/goview"
 )
 
+type pageHandlerFunc func(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview.M, error)
+
 func loginPage(_ appContext, _ http.ResponseWriter, r *http.Request) (goview.M, error) {
 	confirmed := r.URL.Query().Get("confirmed")
 	if confirmed == "true" {
