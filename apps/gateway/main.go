@@ -40,43 +40,37 @@ package main
 
 import (
 	"flag"
-	"net/http"
-
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
-	"github.com/go-chi/render"
+	"io"
+	"os"
+	"log"
 )
 
-var addr = flag.String("addr", ":3333", "http service address")
-var routes = flag.Bool("routes", false, "Generate router documentation")
-
 func main() {
-	flag.Parse()
+	if err := run(os.Args, os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	hub := newHub()
-	go hub.run()
+func run(args []string, out io.Writer) error {
+	flags  := flag.NewFlagSet(args[0], flag.ExitOnError)
+	if err := flags.Parse(args[1:]); err != nil {
+		return err
+	}
 
-	r := chi.NewRouter()
+	configFile := flag.String("config", "", "path to config file")
+	envPrefix := os.Getenv("ENV_PREFIX")
+	if envPrefix == "" {
+		envPrefix = "app"
+	}
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.URLFormat)
-	r.Use(render.SetContentType(render.ContentTypeJSON))
+	cfg, err := loadConfig(*configFile, envPrefix)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	r.Route("/session", func(r chi.Router) {
-		// get a session by it's ID from the database or return a "default" session
-		r.Get("/", getDefaultSession)
-		r.Get("/{sessionID}", getSession)
-
-		// queue a scan using the parameters of the session
-		r.Post("/", startSession)
-	})
-
-	r.Get("/", serveHome)
-	r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(hub, w, r)
-	})
-
-	http.ListenAndServe(*addr, r)
+	addr   := flag.String("addr", ":4000", "http service address")
+	// routes := flag.Bool("routes", false, "Generate router documentation")
+	
+	server := newServer(cfg)
+	return server.run(*addr)
 }

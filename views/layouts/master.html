@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <title>{{.app_name}}</title>
+    {{include "partials/header"}}
+  </head>
+  <body data-controller="navigate svelte account">
+  {{include "partials/top_navbar"}}
+    <section class="section">
+      <div class="container h-full px-5 py-5">
+        {{if .userError}}
+          <div class="columns is-mobile is-centered is-vcentered">
+            <div class="column is-one-third-desktop has-text-centered is-narrow">
+              <div class="notification is-danger is-light">
+                <p>{{.userError}}</p>
+              </div>
+            </div>
+          </div>
+        {{end}}
+        <div class="columns is-mobile is-centered is-vcentered">
+          <div class="column is-one-third-desktop has-text-centered is-narrow">
+            <div class="is-hidden notification is-danger is-light" data-account-target="formError">
+              <p>Form validation failed</p>
+            </div>
+          </div>
+        </div>
+        {{template "content" .}}
+      </div>
+    </section>
+    {{include "partials/footer"}}
+    <script src="/static/js/bundle.js" async></script>
+  </body>
+</html>

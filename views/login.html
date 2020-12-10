@@ -1,0 +1,39 @@
+{{define "content"}}
+    <div class="columns is-mobile is-centered">
+        <div class="column is-one-third-desktop">
+            {{ if .error }}
+                <p> {{.error}} </p>
+            {{end}}
+
+            {{ if .confirmed }}
+                <box class="box has-background-success"> Thank you for confirming your email. Sign in to get started ! </box>
+            {{end}}
+
+            {{ if .not_confirmed }}
+                <box class="box has-background-warning"> Email not confirmed yet ! An email was sent to your inbox for confirmation. Please confirm to login.</box>
+            {{end}}
+
+            {{ if .confirmation_sent }}
+                <box class="box has-background-warning"> An email has been sent to your inbox for confirmation. Please confirm to login. </box>
+            {{end}}
+
+            <div class="columns is-mobile is-centered pb-5">
+                <p class="title is-3">{{.app_name}}</p>
+            </div>
+           
+            <hr>
+            <div class="control is-expanded">
+                <a class="button is-primary is-outlined is-fullwidth"
+                        href="/auth?provider=google"
+                        type="button">
+                        <span class="icon has-text-info">
+                          <i class="fab fa-google"></i>
+                        </span>
+                    <span>Sign in with Google</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    </div>
+
+{{end}}

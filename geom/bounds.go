@@ -13,7 +13,7 @@ type BoundingBox struct {
 func NewBounds(points []Vector2) BoundingBox {
 
 	var min, max Vector2
-	
+
 	for _, pt := range points {
 		min.X = math.Min(pt.X, min.X)
 		min.Y = math.Min(pt.Y, min.Y)
