@@ -5,7 +5,7 @@
 package main
 
 import (
-	"context"
+	"github.com/go-chi/valve"
 	"log"
 	"os"
 	"github.com/nsqio/go-nsq"
@@ -16,7 +16,7 @@ const wsChannel = "websocket"
 
 
 type publication struct {
-	ctx   context.Context
+	valve  *valve.Valve
 	topic string
 
 	// registered subscribers.
@@ -35,9 +35,9 @@ type publication struct {
 	consumer   *nsq.Consumer
 }
 
-func newPublication(ctx context.Context, topic string) *publication {
+func newPublication(v *valve.Valve, topic string) *publication {
 	return &publication{
-		ctx:        ctx,
+		valve: v,
 		topic: topic,
 		broadcast:  make(chan []byte),
 		subscribe:   make(chan *subscriber),
@@ -47,7 +47,7 @@ func newPublication(ctx context.Context, topic string) *publication {
 }
 
 func (p *publication) remove(s *subscriber) {
-	delete(p.subscribers, s)
+	delete(p.subscribers, s) // protected by channels
 	s.cancel()
 
 	if len(p.subscribers) == 0 && p.consumer != nil {
@@ -57,9 +57,12 @@ func (p *publication) remove(s *subscriber) {
 }
 
 func (p *publication) run() {
+	p.valve.Open()
+	defer p.valve.Close()
+
 	for {
 		select {
-		case <-p.ctx.Done():
+		case <-p.valve.Stop():
 			for sub := range p.subscribers {
 				p.remove(sub)
 			}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync"
 	"github.com/foolin/goview"
 	"time"
 	"fmt"
@@ -23,6 +24,7 @@ type server struct {
 	cfg 			config	
 	appCtx 			appContext		
 	router 			chi.Router
+	mut 			sync.RWMutex
 	publications	map[string]*publication
 	valve			*valve.Valve
 	view 			*goview.ViewEngine
@@ -36,6 +38,7 @@ func newServer(cfg config) *server {
 	s := &server{
 		cfg: 			cfg,
 		router: 		chi.NewRouter(),
+		mut: 			sync.RWMutex{},
 		publications: 	make(map[string]*publication),
 		valve:     		valve.New(),
 		view: 			goview.New(viewCfg),
@@ -186,8 +189,13 @@ func (s *server) handleSubscribe() http.HandlerFunc {
 func (s *server) getPublication(topic string) *publication {
 	var pub *publication
 	if pub, ok := s.publications[topic]; !ok {
-		pub = newPublication(s.valve.Context(), topic)
+		pub = newPublication(s.valve, topic)
+
+		s.mut.Lock()
 		s.publications[topic] = pub
+		s.mut.Unlock()
+
+		go pub.run()
 	} 
 
 	return pub
