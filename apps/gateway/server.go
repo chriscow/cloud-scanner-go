@@ -130,32 +130,34 @@ func (s *server) routes() {
 	s.router.Get("/auth/callback", render("login", authCallbackPage))
 	s.router.Get("/auth", render("login", authPage))
 
-	s.router.Get("/oeis", render("oeis"))
-	s.router.Post("/oeis", render("oeis", findOEIS))
-
 	// Protected routes
 	s.router.Group(func(r chi.Router) {
+		r.Use(s.appCtx.user.IsAuthenticated)
+
 		// Seek, verify and validate JWT tokens
-		r.Use(jwtauth.Verifier(s.auth))
+		// r.Use(jwtauth.Verifier(s.auth))
 
 		// Handle valid / invalid tokens. In this example, we use
 		// the provided authenticator middleware, but you can write your
 		// own very easily, look at the Authenticator method in jwtauth.go
 		// and tweak it, its not scary.
-		r.Use(jwtauth.Authenticator)
+		// r.Use(jwtauth.Authenticator)
 
-		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
-			_, claims, _ := jwtauth.FromContext(r.Context())
-			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
+		// r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
+		// 	_, claims, _ := jwtauth.FromContext(r.Context())
+		// 	w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
+		// })
+
+		r.Route("/oeis", func(r chi.Router) {
+			r.Get("/", render("oeis"))
+			r.Post("/", render("oeis", findOEIS))
 		})
 
 		r.Route("/app", func(r chi.Router) {
-			r.Use(s.appCtx.user.IsAuthenticated)
 			r.Get("/", render("app", appPage))
 		})
 
 		r.Route("/api", func(r chi.Router) {
-			// r.Use(s.appCtx.user.IsAuthenticated)
 			r.Use(middleware.AllowContentType("application/json"))
 
 			r.Route("/session", func(r chi.Router) {

@@ -68,7 +68,7 @@ func run(args []string, out io.Writer) error {
 		log.Fatal(err)
 	}
 
-	addr := flag.String("addr", ":4000", "http service address")
+	addr := flag.String("addr", ":3333", "http service address")
 	// routes := flag.Bool("routes", false, "Generate router documentation")
 
 	server := newServer(cfg)

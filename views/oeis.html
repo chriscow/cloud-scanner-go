@@ -6,8 +6,8 @@
         </form>
     </div>
 </div>
-<h1>Found: {{.count}} in {{.elapsed}}ms</h1>
 {{if .data}}
+<h1>Found: {{.count}} in {{.elapsed}}ms</h1>
 <ul class="">
     {{range .data}}
     <li><a href="https://oeis.org/{{.ID}}">{{.ID}}</a> - {{.Seq}}</li>
