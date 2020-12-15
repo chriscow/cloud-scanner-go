@@ -41,8 +41,8 @@ package main
 import (
 	"flag"
 	"io"
-	"os"
 	"log"
+	"os"
 )
 
 func main() {
@@ -52,7 +52,7 @@ func main() {
 }
 
 func run(args []string, out io.Writer) error {
-	flags  := flag.NewFlagSet(args[0], flag.ExitOnError)
+	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -68,9 +68,9 @@ func run(args []string, out io.Writer) error {
 		log.Fatal(err)
 	}
 
-	addr   := flag.String("addr", ":4000", "http service address")
+	addr := flag.String("addr", ":4000", "http service address")
 	// routes := flag.Bool("routes", false, "Generate router documentation")
-	
+
 	server := newServer(cfg)
 	return server.run(*addr)
 }

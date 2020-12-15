@@ -7,8 +7,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"reticle/scan"
-	"reticle/util"
+	"github.com/chriscow/cloud-scanner-go/scan"
+	"github.com/chriscow/cloud-scanner-go/util"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"

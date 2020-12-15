@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"reticle/geom"
+	"github.com/chriscow/cloud-scanner-go/geom"
 	"sort"
 	"strconv"
 )

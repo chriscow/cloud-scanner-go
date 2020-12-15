@@ -1,9 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/foolin/goview"
 )
 
@@ -41,6 +47,62 @@ func loginPage(_ appContext, _ http.ResponseWriter, r *http.Request) (goview.M, 
 	return goview.M{}, nil
 }
 
+func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview.M, error) {
+	var once sync.Once
+	once.Do(func() {
+		if err := loadOEIS(); err != nil {
+			log.Fatal("load oeis database", err)
+		}
+	})
+
+	r.ParseForm()
+
+	var seq string
+	var pos int
+	var count int
+	var err error
+
+	input := strings.Split(r.Form["in"][0], " ")
+
+	seq = input[0]
+	pos = 0
+	if len(input) > 1 {
+		pos, err = strconv.Atoi(input[1])
+		if err != nil {
+			return nil, fmt.Errorf("%v: %w", err, fmt.Errorf("encoding failed"))
+		}
+		pos = (pos - 1) * 2
+	}
+
+	tok := strings.Split(seq, "")
+	seq = strings.Join(tok, ",")
+
+	start := time.Now()
+	count = 0
+
+	type data struct {
+		ID  string
+		Seq string
+	}
+
+	results := make([]data, 0)
+
+	for k, v := range oeisSeq {
+		if strings.Index(v, seq) == pos {
+			results = append(results, data{ID: strings.Trim(k, " "), Seq: v})
+			count++
+		}
+	}
+	elapsed := time.Since(start)
+	fmt.Println("count:", count, "elapsed:", elapsed.Milliseconds())
+
+	return goview.M{
+		"elapsed": elapsed.Milliseconds(),
+		"count":   count,
+		"query":   r.Form["in"][0],
+		"data":    results,
+	}, nil
+}
 
 func authPage(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview.M, error) {
 	err := appCtx.user.HandleGothLogin(w, r)
@@ -56,7 +118,6 @@ func authPage(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview
 	http.Redirect(w, r, redirectTo, http.StatusSeeOther)
 	return goview.M{}, nil
 }
-
 
 func authCallbackPage(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview.M, error) {
 	err := appCtx.user.HandleGothCallback(w, r)

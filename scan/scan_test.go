@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"reticle/geom"
+	"github.com/chriscow/cloud-scanner-go/geom"
 	"testing"
 
 	"github.com/gocarina/gocsv"

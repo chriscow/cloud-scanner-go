@@ -3,21 +3,26 @@ package scan
 import (
 	"context"
 	"log"
-	"math"
+	"time"
 )
 
-// ScoredResults keeps a sorted list of results ordered by score
+// ScoredResults keeps a sorted list of results ordered by score. Once the buffer
+// contains `depth` results, we start popping the top results off and sent over
+// the a channel given to us.
 type ScoredResults struct {
-	results map[int][]Result
-	resCh   <-chan Result
+	results resultHeap
 	ctx     context.Context
+	depth   int
+	pub     chan<- []Result
+	res     chan Result
 }
 
 // NewScoredResults creates and returns a ScoredResults instance
-func NewScoredResults(ctx context.Context, resCh <-chan Result) *ScoredResults {
+func NewScoredResults(ctx context.Context, depth int, publish chan<- []Result) *ScoredResults {
 	sr := &ScoredResults{
-		results: make(map[int][]Result),
-		resCh:   resCh,
+		results: make([]Result, 0),
+		pub:     publish,
+		res:     make(chan Result),
 		ctx:     ctx,
 	}
 
@@ -26,37 +31,26 @@ func NewScoredResults(ctx context.Context, resCh <-chan Result) *ScoredResults {
 	return sr
 }
 
-// Scores returns all the result scores (rounded) that are currently stored
-func (sr *ScoredResults) Scores() []int {
-	scores := make([]int, len(sr.results))
-
-	i := 0
-	for key := range sr.results {
-		scores[i] = key
-		i++
-	}
-
-	return scores
-}
-
-// Results returns a list of Results that have the same score (rounded)
-func (sr *ScoredResults) Results(score int) []Result {
-	return sr.results[score]
-}
-
 func (sr *ScoredResults) start() {
 	go func() {
+		ticker := time.NewTicker(time.Second)
 		running := true
 		for running {
 			select {
-			case res, ok := <-sr.resCh:
-				if ok {
-					sr.addResult(res)
-				} else {
-					// channel closed
-					running = false
-					log.Println("[ScoredResults] Channel closed: exiting")
+			case <-ticker.C:
+				// every second, calc how many results are over our `depth`
+				// value, make a slice, pop them off and publish them
+				n := sr.results.Len()
+				count := sr.depth - n
+				if count > 0 {
+					res := make([]Result, 0, count)
+					for count > 0 {
+						res = append(res, sr.results.Pop().(Result))
+					}
+					sr.pub <- res
 				}
+			case res := <-sr.res:
+				sr.results.Push(res)
 			case <-sr.ctx.Done():
 				log.Println("[ScoredResults] Canceled: exiting")
 				return
@@ -65,21 +59,7 @@ func (sr *ScoredResults) start() {
 	}()
 }
 
-func (sr *ScoredResults) addResult(res Result) {
-	// See if we have the score in the map already.
-	// If not allocate one
-	score := int(math.Round(res.Score))
-	if _, ok := sr.results[score]; !ok {
-		sr.results[score] = make([]Result, 0)
-	}
-
-	sr.results[score] = append(sr.results[score], res)
+// Add adds the given result to our heap by sending through an internal channel
+func (sr *ScoredResults) Add(res Result) {
+	sr.res <- res
 }
-
-// func (s *ScoredResults) ScoreCount() int {
-
-// }
-
-// func (s *ScoredResults) ValuesCount() int {
-
-// }

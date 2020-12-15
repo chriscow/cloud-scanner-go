@@ -1,0 +1,22 @@
+{{define "content"}}
+<div class="columns is-mobile is-centered">
+    <div class="column is-half-desktop">
+        <form class="" action="/oeis" method="post">
+            <input id="in" name="in" class="input" value="{{.query}}" />
+        </form>
+    </div>
+</div>
+<h1>Found: {{.count}} in {{.elapsed}}ms</h1>
+{{if .data}}
+<ul class="">
+    {{range .data}}
+    <li><a href="https://oeis.org/{{.ID}}">{{.ID}}</a> - {{.Seq}}</li>
+    {{end}}
+</ul>
+{{end}}
+</div>
+
+<script>
+
+</script>
+{{end}}

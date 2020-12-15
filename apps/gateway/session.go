@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"reticle/geom"
-	"reticle/scan"
 	"time"
+
+	"github.com/chriscow/cloud-scanner-go/geom"
+	"github.com/chriscow/cloud-scanner-go/scan"
 
 	"github.com/go-chi/render"
 	"github.com/nsqio/go-nsq"
@@ -72,6 +73,7 @@ func startSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		render.Render(w, r, ErrServerError("NewProducer", err))
 	}
+	defer producer.Stop()
 
 	body, err := json.Marshal(*payload.Session)
 	if err != nil {

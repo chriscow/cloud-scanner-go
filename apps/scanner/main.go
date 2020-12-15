@@ -12,8 +12,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/nsqio/go-nsq"
 
-	"reticle/scan"
-	"reticle/util"
+	"github.com/chriscow/cloud-scanner-go/scan"
+	"github.com/chriscow/cloud-scanner-go/util"
 )
 
 const (
@@ -75,6 +75,7 @@ loop:
 
 func sessionComplete(s scan.Session) error {
 	config := nsq.NewConfig()
+	config.MsgTimeout = 5 * time.Minute
 	producer, err := nsq.NewProducer("127.0.0.1:4150", config)
 	if err != nil {
 		return err

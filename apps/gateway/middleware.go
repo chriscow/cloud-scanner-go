@@ -6,6 +6,13 @@ import (
 	"context"
 )
 
+// setDefaultPageData is a middleware function that is called on every request.
+// It adds a map[string]interface{} with the current route and applicaiton name
+// for use in html templates.  If the user is logged in, it also adds their
+// email address, provider metadata and a flag `is_logged_in`.
+//
+// The map is stored in the request context under the key `appCtxDataKey`
+//
 func (s *server) setDefaultPageData(cfg config) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 

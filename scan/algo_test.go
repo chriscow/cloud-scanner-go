@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 	"os"
-	"reticle/geom"
+	"github.com/chriscow/cloud-scanner-go/geom"
 	"testing"
 )
 

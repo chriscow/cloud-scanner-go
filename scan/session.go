@@ -4,10 +4,11 @@ import (
 	"context"
 	"log"
 	"math"
-	g "reticle/geom"
 	"runtime"
 	"sync"
 	"time"
+
+	g "github.com/chriscow/cloud-scanner-go/geom"
 
 	"github.com/urfave/cli/v2"
 )
@@ -69,8 +70,8 @@ func Restore(s *Session) error {
 	}
 	s.Lattice = lattice
 
-	for _, z := range s.ZLine.Zeros {
-		err := g.LoadZeros(&z, s.ZLine.Limit)
+	for i := range s.ZLine.Zeros {
+		err := g.LoadZeros(&s.ZLine.Zeros[i], s.ZLine.Limit)
 		if err != nil {
 			return err
 		}

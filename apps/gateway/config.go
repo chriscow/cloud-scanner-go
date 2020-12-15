@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"os"
+
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
@@ -17,6 +19,8 @@ type config struct {
 	LogFormatJSON    bool   `json:"log_format_json" envconfig:"log_format_json" default:"false"`
 	SessionSecret    string `json:"session_secret" envconfig:"session_secret" default:"mysessionsecret"`
 
+	JWTSecret string `json:"jwt_secret" envconfig:"jwt_secret"`
+
 	Driver     string `json:"driver" envconfig:"driver" default:"sqlite3"`
 	DataSource string `json:"datasource" envconfig:"datasource" default:"file:users.db?mode=memory&cache=shared&_fk=1"`
 
@@ -25,7 +29,6 @@ type config struct {
 	GoogleSecret   string `json:"google_secret" envconfig:"google_secret"`
 }
 
-
 func loadConfig(configFile string, envPrefix string) (config, error) {
 	var cfg config
 	if err := loadEnvironment(configFile); err != nil {
@@ -33,6 +36,10 @@ func loadConfig(configFile string, envPrefix string) (config, error) {
 	}
 
 	if err := envconfig.Process(envPrefix, &cfg); err != nil {
+		return cfg, err
+	}
+
+	if err := verifyEnvironment(); err != nil {
 		return cfg, err
 	}
 
@@ -51,4 +58,12 @@ func loadEnvironment(filename string) error {
 		}
 	}
 	return err
+}
+
+func verifyEnvironment() error {
+	if os.Getenv("JWT_SECRET") == "" {
+		return errors.New("Environment error: JWT_SECRET not set")
+	}
+
+	return nil
 }

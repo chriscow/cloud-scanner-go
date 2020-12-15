@@ -1,54 +1,64 @@
 package main
 
 import (
-	"sync"
-	"github.com/foolin/goview"
-	"time"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/go-chi/jwtauth"
+
+	"github.com/Masterminds/sprig"
+	"github.com/adnaan/users"
+	"github.com/foolin/goview"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/valve"
-	"github.com/Masterminds/sprig"
-	"github.com/adnaan/users"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/google"
 )
+
 const appCtxDataKey = "app_ctx_data"
 
-
 type server struct {
-	cfg 			config	
-	appCtx 			appContext		
-	router 			chi.Router
-	mut 			sync.RWMutex
-	publications	map[string]*publication
-	valve			*valve.Valve
-	view 			*goview.ViewEngine
+	cfg          config
+	appCtx       appContext
+	router       chi.Router
+	mut          sync.RWMutex
+	publications map[string]*publication
+	valve        *valve.Valve
+	view         *goview.ViewEngine
+	auth         *jwtauth.JWTAuth
 }
 
 func newServer(cfg config) *server {
 	viewCfg := goview.DefaultConfig
 	viewCfg.DisableCache = true
+
 	viewCfg.Funcs = sprig.FuncMap()
 
 	s := &server{
-		cfg: 			cfg,
-		router: 		chi.NewRouter(),
-		mut: 			sync.RWMutex{},
-		publications: 	make(map[string]*publication),
-		valve:     		valve.New(),
-		view: 			goview.New(viewCfg),
+		cfg:          cfg,
+		router:       chi.NewRouter(),
+		mut:          sync.RWMutex{},
+		publications: make(map[string]*publication),
+		valve:        valve.New(),
+		view:         goview.New(viewCfg),
 	}
 
 	s.configure()
 
+	// For debugging/example purposes, we generate and print
+	// a sample jwt token with claims `user_id:123` here:
+	_, tokenString, _ := s.auth.Encode(jwt.MapClaims{"user_id": 123})
+	fmt.Printf("DEBUG: a sample jwt is %s\n\n", tokenString)
+
 	return s
 }
-
 
 func (s *server) run(addr string) (err error) {
 	fmt.Println("Listening on ", addr)
@@ -56,15 +66,20 @@ func (s *server) run(addr string) (err error) {
 	return s.valve.Shutdown(20 * time.Second)
 }
 
-
 func (s *server) configure() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		panic("JWT_SECRET not set")
+	}
+
+	s.auth = jwtauth.New("HS256", []byte(secret), nil)
 	s.context()
 	s.middleware()
 	s.routes()
 }
 
 func (s *server) context() error {
-	
+
 	defaultUsersConfig := users.Config{
 		Driver:        s.cfg.Driver,
 		Datasource:    s.cfg.DataSource,
@@ -79,7 +94,7 @@ func (s *server) context() error {
 	}
 
 	s.appCtx = appContext{
-		user:		usersAPI,
+		user:       usersAPI,
 		viewEngine: s.view,
 		pageData:   goview.M{},
 		cfg:        s.cfg,
@@ -107,7 +122,7 @@ func (s *server) routes() {
 	render := newRenderer(s.appCtx)
 
 	s.router.Get("/", render("home"))
-	s.router.Get("/login", render("login", loginPage) )
+	s.router.Get("/login", render("login", loginPage))
 	s.router.Get("/logout", func(w http.ResponseWriter, r *http.Request) {
 		s.appCtx.user.HandleGothLogout(w, r)
 	})
@@ -115,27 +130,46 @@ func (s *server) routes() {
 	s.router.Get("/auth/callback", render("login", authCallbackPage))
 	s.router.Get("/auth", render("login", authPage))
 
-	s.router.Route("/app", func(r chi.Router) {
-		r.Use(s.appCtx.user.IsAuthenticated)
-		r.Get("/", render("app", appPage))
-	})
+	s.router.Get("/oeis", render("oeis"))
+	s.router.Post("/oeis", render("oeis", findOEIS))
 
-	s.router.Route("/api", func(r chi.Router) {
-		r.Use(s.appCtx.user.IsAuthenticated)
-		r.Use(middleware.AllowContentType("application/json"))
+	// Protected routes
+	s.router.Group(func(r chi.Router) {
+		// Seek, verify and validate JWT tokens
+		r.Use(jwtauth.Verifier(s.auth))
 
-		r.Route("/session", func(r chi.Router) {
-			// get a session by it's ID from the database or return a "default" session
-			r.Get("/", getDefaultSession)
-			r.Get("/{sessionID}", getSession)
-	
-			// queue a scan using the parameters of the session
-			r.Post("/", startSession)
+		// Handle valid / invalid tokens. In this example, we use
+		// the provided authenticator middleware, but you can write your
+		// own very easily, look at the Authenticator method in jwtauth.go
+		// and tweak it, its not scary.
+		r.Use(jwtauth.Authenticator)
+
+		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
+			_, claims, _ := jwtauth.FromContext(r.Context())
+			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
 		})
 
+		r.Route("/app", func(r chi.Router) {
+			r.Use(s.appCtx.user.IsAuthenticated)
+			r.Get("/", render("app", appPage))
+		})
+
+		r.Route("/api", func(r chi.Router) {
+			// r.Use(s.appCtx.user.IsAuthenticated)
+			r.Use(middleware.AllowContentType("application/json"))
+
+			r.Route("/session", func(r chi.Router) {
+				// get a session by it's ID from the database or return a "default" session
+				r.Get("/", getDefaultSession)
+				r.Get("/{sessionID}", getSession)
+
+				// queue a scan using the parameters of the session
+				r.Post("/", startSession)
+			})
+		})
 	})
-	
-	s.router.Get("/subscribe/{topic}", s.handleSubscribe())	
+
+	s.router.Get("/subscribe/{topic}", s.handleSubscribe())
 }
 
 // sets up a http.FileServer handler to serve static files from a http.FileSystem
@@ -163,12 +197,11 @@ func (s *server) staticRoute(staticPath string) {
 	})
 }
 
-
 // handleSubscribe handles websocket requests to subscribe to an NSQ topic
 func (s *server) handleSubscribe() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		topic := chi.URLParam(r, "topic") 
+		topic := chi.URLParam(r, "topic")
 		if topic == "" {
 			http.Error(w, "Invalid request", http.StatusNotAcceptable)
 			return
@@ -179,7 +212,7 @@ func (s *server) handleSubscribe() http.HandlerFunc {
 			http.Error(w, "Websocket error:"+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		
+
 		pub := s.getPublication(topic)
 		sub := newSubscriber(pub, conn)
 		pub.subscribe <- sub
@@ -196,7 +229,7 @@ func (s *server) getPublication(topic string) *publication {
 		s.mut.Unlock()
 
 		go pub.run()
-	} 
+	}
 
 	return pub
 }

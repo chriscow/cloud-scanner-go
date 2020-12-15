@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"reticle/scan"
+	"github.com/chriscow/cloud-scanner-go/scan"
 )
 
 func dbGetSession(id string) (*scan.Session, error) {

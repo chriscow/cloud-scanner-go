@@ -4,7 +4,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"reticle/geom"
+	"github.com/chriscow/cloud-scanner-go/geom"
 )
 
 func randOrigins(min, max float64, center geom.Vector2, count int) []geom.Vector2 {
