@@ -10,8 +10,8 @@ import (
 
 type config struct {
 	Name             string `json:"name" default:"Scanner Gateway"`
-	Domain           string `json:"domain" default:"http://localhost:4000"`
-	Port             int    `json:"port" default:"4000"`
+	Domain           string `json:"domain" default:"http://localhost:3333"`
+	Port             int    `json:"port" default:"3333"`
 	HealthPath       string `json:"health_path" envconfig:"health_path" default:"/healthz"`
 	ReadTimeoutSecs  int    `json:"read_timeout_secs" envconfig:"read_timeout_secs" default:"5"`
 	WriteTimeoutSecs int    `json:"write_timeout_secs" envconfig:"write_timeout_secs" default:"10"`
