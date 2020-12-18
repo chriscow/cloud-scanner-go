@@ -47,60 +47,80 @@ func loginPage(_ appContext, _ http.ResponseWriter, r *http.Request) (goview.M, 
 	return goview.M{}, nil
 }
 
+var once sync.Once
+
 func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview.M, error) {
-	var once sync.Once
 	once.Do(func() {
 		if err := loadOEIS(); err != nil {
-			log.Fatal("load oeis database", err)
+			log.Fatal("load oeis sequences", err)
+		}
+
+		if err := loadOEISDesc(); err != nil {
+			log.Fatal("load oeis names", err)
 		}
 	})
 
-	r.ParseForm()
-
-	var seq string
-	var pos int
-	var count int
-	var err error
-
-	input := strings.Split(r.Form["in"][0], " ")
-
-	seq = input[0]
-	pos = 0
-	if len(input) > 1 {
-		pos, err = strconv.Atoi(input[1])
-		if err != nil {
-			return nil, fmt.Errorf("%v: %w", err, fmt.Errorf("encoding failed"))
-		}
-		pos = (pos - 1) * 2
+	in := r.URL.Query().Get("in")
+	if in == "" {
+		return goview.M{}, nil
 	}
 
-	tok := strings.Split(seq, "")
-	seq = strings.Join(tok, ",")
+	deOnly := false
+	if r.URL.Query().Get("de") != "" {
+		deOnly = true
+	}
+
+	var err error
+	pos := 0
+
+	// the input sequence is a string of numbers and optionally a space
+	// to indicate starting position in the list
+	if strings.Contains(in, " ") {
+		tok := strings.Split(in, " ")
+		in = tok[0]
+
+		// see if a position was entered
+		if len(tok) > 1 {
+			pos, err = strconv.Atoi(tok[1])
+			if err != nil {
+				return goview.M{"error": err.Error()}, fmt.Errorf("%v: %w", err, fmt.Errorf("encoding failed"))
+			}
+			pos-- // Input is 1-based so change to zero-based
+		}
+	}
+
+	seq := strings.Split(in, "")
+	digits := make([]int, len(seq))
+
+	for i := range seq {
+		dig, err := strconv.Atoi(seq[i])
+		if err != nil {
+			return goview.M{
+				"error": err.Error(),
+			}, err
+		}
+
+		digits[i] = dig
+	}
 
 	start := time.Now()
-	count = 0
-
-	type data struct {
-		ID  string
-		Seq string
-	}
-
-	results := make([]data, 0)
-
-	for k, v := range oeisSeq {
-		if strings.Index(v, seq) == pos {
-			results = append(results, data{ID: strings.Trim(k, " "), Seq: v})
-			count++
-		}
+	results, err := searchOEIS(digits, pos, deOnly)
+	if err != nil {
+		return goview.M{"error": err.Error()}, fmt.Errorf("%v: %w", err, fmt.Errorf("encoding failed"))
 	}
 	elapsed := time.Since(start)
+
+	count := len(results)
 	fmt.Println("count:", count, "elapsed:", elapsed.Milliseconds())
 
 	return goview.M{
-		"elapsed": elapsed.Milliseconds(),
-		"count":   count,
-		"query":   r.Form["in"][0],
-		"data":    results,
+		"elapsed":           elapsed.Milliseconds(),
+		"count":             count,
+		"pos":               pos,
+		"digits":            digits,
+		"in":                r.URL.Query().Get("in"),
+		"decimal_expansion": r.URL.Query().Get("de"),
+		"data":              results,
 	}, nil
 }
 

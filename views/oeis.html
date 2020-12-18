@@ -1,8 +1,10 @@
 {{define "content"}}
 <div class="columns is-mobile is-centered">
     <div class="column is-half-desktop">
-        <form class="" action="/oeis" method="post">
-            <input id="in" name="in" class="input" value="{{.query}}" />
+        <form id="form" class="" action="/oeis">
+            <input id="in" name="in" class="input" value="{{.in}}" />
+            <input type="checkbox" id="de" name="de" {{if .decimal_expansion}}checked{{end}} />
+            <label class="checkbox" for="de">Decimal expansion only</label>
         </form>
     </div>
 </div>
@@ -10,13 +12,18 @@
 <h1>Found: {{.count}} in {{.elapsed}}ms</h1>
 <ul class="">
     {{range .data}}
-    <li><a href="https://oeis.org/{{.ID}}">{{.ID}}</a> - {{.Seq}}</li>
+    <li style="white-space: nowrap;"><a href="https://oeis.org/{{.ID}}">{{.ID}}</a> - {{.Seq}}</li>
     {{end}}
 </ul>
+{{else}}
+<h1>Found: 0 in {{.elapsed}}ms</h1>
 {{end}}
 </div>
 
 <script>
-
+    document.getElementById("de").addEventListener("click", event => {
+        let form = document.getElementById("form")
+        form.submit()
+    });
 </script>
 {{end}}

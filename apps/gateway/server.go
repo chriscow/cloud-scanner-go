@@ -130,6 +130,8 @@ func (s *server) routes() {
 	s.router.Get("/auth/callback", render("login", authCallbackPage))
 	s.router.Get("/auth", render("login", authPage))
 
+	s.router.Get("/oeis", render("oeis", findOEIS))
+
 	// Protected routes
 	s.router.Group(func(r chi.Router) {
 		r.Use(s.appCtx.user.IsAuthenticated)
@@ -147,11 +149,6 @@ func (s *server) routes() {
 		// 	_, claims, _ := jwtauth.FromContext(r.Context())
 		// 	w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
 		// })
-
-		r.Route("/oeis", func(r chi.Router) {
-			r.Get("/", render("oeis"))
-			r.Post("/", render("oeis", findOEIS))
-		})
 
 		r.Route("/app", func(r chi.Router) {
 			r.Get("/", render("app", appPage))
