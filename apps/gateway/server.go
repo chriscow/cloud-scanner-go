@@ -130,11 +130,11 @@ func (s *server) routes() {
 	s.router.Get("/auth/callback", render("login", authCallbackPage))
 	s.router.Get("/auth", render("login", authPage))
 
-	s.router.Get("/oeis", render("oeis", findOEIS))
-
 	// Protected routes
 	s.router.Group(func(r chi.Router) {
 		r.Use(s.appCtx.user.IsAuthenticated)
+
+		r.Get("/oeis", render("oeis", findOEIS))
 
 		// Seek, verify and validate JWT tokens
 		// r.Use(jwtauth.Verifier(s.auth))
