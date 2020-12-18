@@ -85,7 +85,10 @@ func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview
 			if err != nil {
 				return goview.M{"error": err.Error()}, fmt.Errorf("%v: %w", err, fmt.Errorf("encoding failed"))
 			}
-			pos-- // Input is 1-based so change to zero-based
+
+			if pos > 0 {
+				pos-- // Input is 1-based so change to zero-based
+			}
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -151,6 +152,13 @@ func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 			})
 		}
 	}
+
+	sort.Slice(results, func(i, j int) bool {
+		id1, _ := strconv.Atoi(results[i].ID[1:])
+		id2, _ := strconv.Atoi(results[j].ID[1:])
+
+		return id1 < id2
+	})
 
 	return results, nil
 }
