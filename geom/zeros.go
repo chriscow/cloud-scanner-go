@@ -83,7 +83,7 @@ func (z ZeroType) GetZType(name string) (ZeroType, error) {
 func LoadZeros(zeros *Zeros, maxValue float64) error {
 
 	var err error
-	dataPath := path.Join(os.Getenv("APP_DATA"), os.Getenv("SCAN_DATA_PATH"))
+	dataPath := os.Getenv("APP_DATA")
 
 	values := make([]float64, 0, 256)
 

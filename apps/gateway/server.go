@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -37,6 +38,7 @@ type server struct {
 
 func newServer(cfg config) *server {
 	viewCfg := goview.DefaultConfig
+	viewCfg.Root = path.Join(os.Getenv("APP_DATA"), "views")
 	viewCfg.DisableCache = true
 
 	viewCfg.Funcs = sprig.FuncMap()
@@ -69,7 +71,7 @@ func (s *server) run(addr string) (err error) {
 func (s *server) configure() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		panic("JWT_SECRET not set")
+		log.Fatal("JWT_SECRET not set")
 	}
 
 	if os.Getenv("APP_DATA") == "" {
@@ -182,8 +184,7 @@ func (s *server) staticRoute(staticPath string) {
 	}
 
 	// location of public static files on the server
-	appData := os.Getenv("APP_DATA")
-	public := http.Dir(path.Join(appData, "public"))
+	public := http.Dir(path.Join(os.Getenv("APP_DATA"), "public"))
 
 	// set up a redirect if the path does not end in a slash to one that does
 	if staticPath != "/" && staticPath[len(staticPath)-1] != '/' {

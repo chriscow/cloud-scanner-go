@@ -9,8 +9,6 @@ func TestLoadLoad(t *testing.T) {
 	const maxval = 100
 	const scalar = .3
 
-	os.Setenv("SCAN_DATA_PATH", "data")
-
 	for _, zt := range ZeroTypes {
 		zeros := Zeros{
 			ZeroType:  zt,

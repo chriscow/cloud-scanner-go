@@ -7,8 +7,6 @@ import (
 
 func TestCanLoadPinwheelVertices(t *testing.T) {
 
-	os.Setenv("SCAN_DATA_PATH", "data")
-
 	lattice, err := loadLattice(Pinwheel, Vertices)
 	if err != nil {
 		t.Fatal(err)

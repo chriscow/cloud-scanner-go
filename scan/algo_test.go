@@ -33,8 +33,6 @@ func TestAllAngles(t *testing.T) {
 func TestCalc(t *testing.T) {
 	lattice, _ := geom.NewLattice(geom.Pinwheel, geom.Vertices)
 
-	os.Setenv("SCAN_DATA_PATH", "data")
-
 	zeros := geom.Zeros{
 		ZeroType:  geom.Primes,
 		Scalar:    1,

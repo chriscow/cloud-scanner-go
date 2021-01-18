@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"os/signal"
 	"github.com/chriscow/cloud-scanner-go/scan"
 	"github.com/chriscow/cloud-scanner-go/util"

@@ -3,7 +3,6 @@ package geom
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"math"
 	"os"
 	"path"
@@ -91,8 +90,7 @@ func loadLattice(ltype LatticeType, vtype VertexType) (Lattice, error) {
 	vstr := strings.ToLower(vtype.String())
 
 	var err error
-	dataPath := path.Join(os.Getenv("APP_DATA"), os.Getenv("SCAN_DATA_PATH"))
-	p := path.Join(dataPath, "lattices", lstr+"."+vstr+".msgpack")
+	p := path.Join(os.Getenv("APP_DATA"), "lattices", lstr+"."+vstr+".msgpack")
 	l := Lattice{}
 
 	b, err := ioutil.ReadFile(p)
