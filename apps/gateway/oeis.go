@@ -10,8 +10,10 @@ import (
 	"strings"
 )
 
+// Databases are available here: https://oeis.org/wiki/Welcome#Compressed_Versions
+
 var oeisSeq map[string][]int
-var oeisNames map[string]string
+var decExpNames map[string]string
 
 func loadOEIS() error {
 	cwd, err := os.Getwd()
@@ -19,7 +21,7 @@ func loadOEIS() error {
 		return err
 	}
 
-	file, err := os.Open(path.Join(cwd, "data/oeis.org/oeis.org-stripped"))
+	file, err := os.Open(path.Join(cwd, "data/oeis.org/stripped"))
 	if err != nil {
 		return err
 	}
@@ -71,13 +73,13 @@ func loadOEISDesc() error {
 		return err
 	}
 
-	file, err := os.Open(path.Join(cwd, "data/oeis.org/oeis.org-names"))
+	file, err := os.Open(path.Join(cwd, "data/oeis.org/names"))
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	oeisNames = make(map[string]string)
+	decExpNames = make(map[string]string)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -105,7 +107,7 @@ func loadOEISDesc() error {
 		name := strings.Trim(line[0:idx], " ")
 		desc := strings.Trim(line[idx:], " ")
 
-		oeisNames[name] = desc
+		decExpNames[name] = desc
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -117,19 +119,27 @@ func loadOEISDesc() error {
 }
 
 type oeisData struct {
-	ID  string
-	Seq []int
+	ID   string
+	Desc string
+	Seq  []int
 }
 
 func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 	results := make([]oeisData, 0)
-
+	var ok bool
+	var desc string
 	for id, seq := range oeisSeq {
 
+		// decimal expansion only
 		if deOnly {
-			if _, ok := oeisNames[id]; !ok {
+			// skip if the sequence ID is not in the names map
+			// as of this version, the names map only contains descriptions
+			// with the term `decimal expansion`
+			if desc, ok = decExpNames[id]; !ok {
 				continue
 			}
+
+			desc = strings.ReplaceAll(desc, "Decimal expansion of", "")
 		}
 
 		if pos >= len(seq) {
@@ -139,6 +149,13 @@ func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 
 		match := true
 		for i := range digits {
+			if deOnly && len(strconv.Itoa(digits[1])) > 1 {
+				// if searching for a decimal expansion, skip sequences that have
+				// entries longer than 1 digit
+				match = false
+				break
+			}
+
 			if pos+i >= len(seq) || seq[pos+i] != digits[i] {
 				match = false
 				break
@@ -147,8 +164,9 @@ func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 
 		if match {
 			results = append(results, oeisData{
-				ID:  id,
-				Seq: seq,
+				ID:   id,
+				Desc: desc,
+				Seq:  seq,
 			})
 		}
 	}

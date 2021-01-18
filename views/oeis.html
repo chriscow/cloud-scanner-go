@@ -10,9 +10,10 @@
 </div>
 {{if .data}}
 <h1>Found: {{.count}} in {{.elapsed}}ms</h1>
-<ul class="">
+<ol type="1" class="">
     {{range .data}}
-    <li style="white-space: nowrap;"><a href="https://oeis.org/{{.ID}}">{{.ID}}</a> - {{.Seq}}</li>
+    <li style="white-space: nowrap;">
+        {{if .Desc}}<a href="https://oeis.org/{{.ID}}">{{.Desc}}</a>{{else}}<a href="https://oeis.org/{{.ID}}">{{.ID}}{{end}} - {{.Seq}}</li>
     {{end}}
 </ul>
 {{else}}
