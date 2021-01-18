@@ -32,13 +32,8 @@ func (s scanTestArg) String() string {
 }
 
 func compareTest(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	path := cwd + "/data/test/pinwheel-hits-test.csv"
-	testFile, err := os.OpenFile(path, os.O_RDWR, os.ModePerm)
+	fpath := path.Join(os.Getenv("APP_DATA"), "test/pinwheel-hits-test.csv")
+	testFile, err := os.OpenFile(fpath, os.O_RDWR, os.ModePerm)
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +46,7 @@ func compareTest(t *testing.T) {
 
 	lattice, _ := geom.NewLattice(geom.Pinwheel, geom.Vertices)
 
-	os.Setenv("SCAN_DATA_PATH", "../data")
+	os.Setenv("SCAN_DATA_PATH", "data")
 
 	zeros := geom.Zeros{
 		ZeroType:  geom.Primes,

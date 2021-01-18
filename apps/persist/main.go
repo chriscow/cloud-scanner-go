@@ -82,12 +82,9 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
+	appData := path.Join(os.Getenv("APP_DATA"), "badger")
 
-	db, err := badger.Open(badger.DefaultOptions(cwd + "/data/badger"))
+	db, err := badger.Open(badger.DefaultOptions(appData))
 	if err != nil {
 		log.Fatal(err)
 	}

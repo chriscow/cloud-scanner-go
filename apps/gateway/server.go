@@ -72,6 +72,10 @@ func (s *server) configure() {
 		panic("JWT_SECRET not set")
 	}
 
+	if os.Getenv("APP_DATA") == "" {
+		log.Fatal("APP_DATA environment not set")
+	}
+
 	s.auth = jwtauth.New("HS256", []byte(secret), nil)
 	s.context()
 	s.middleware()
@@ -178,8 +182,8 @@ func (s *server) staticRoute(staticPath string) {
 	}
 
 	// location of public static files on the server
-	cwd, _ := os.Getwd()
-	public := http.Dir(path.Join(cwd, "./public"))
+	appData := os.Getenv("APP_DATA")
+	public := http.Dir(path.Join(appData, "public"))
 
 	// set up a redirect if the path does not end in a slash to one that does
 	if staticPath != "/" && staticPath[len(staticPath)-1] != '/' {

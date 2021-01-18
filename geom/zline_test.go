@@ -8,7 +8,7 @@ import (
 func TestNewZLineSingle(t *testing.T) {
 	origin := Vector2{}
 
-	os.Setenv("SCAN_DATA_PATH", "../data")
+	os.Setenv("SCAN_DATA_PATH", "data")
 
 	for _, ztype := range ZeroTypes {
 		z := []ZeroType{ztype}
