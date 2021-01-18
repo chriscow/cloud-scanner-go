@@ -16,12 +16,12 @@ var oeisSeq map[string][]int
 var decExpNames map[string]string
 
 func loadOEIS() error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
+	oeisPath := os.Getenv("APP_OEIS_DATA")
+	if oeisPath == "" {
+		log.Fatal("APP_OEIS_DATA environment not set")
 	}
 
-	file, err := os.Open(path.Join(cwd, "data/oeis.org/stripped"))
+	file, err := os.Open(path.Join(oeisPath, "stripped"))
 	if err != nil {
 		return err
 	}
@@ -68,12 +68,12 @@ func loadOEIS() error {
 }
 
 func loadOEISDesc() error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
+	oeisPath := os.Getenv("APP_OEIS_DATA")
+	if oeisPath == "" {
+		log.Fatal("APP_OEIS_DATA environment not set")
 	}
 
-	file, err := os.Open(path.Join(cwd, "data/oeis.org/names"))
+	file, err := os.Open(path.Join(oeisPath, "names"))
 	if err != nil {
 		return err
 	}
