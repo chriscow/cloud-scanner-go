@@ -111,10 +111,9 @@ func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview
 	if err != nil {
 		return goview.M{"error": err.Error()}, fmt.Errorf("%v: %w", err, fmt.Errorf("encoding failed"))
 	}
-	elapsed := time.Since(start)
 
 	count := len(results)
-	fmt.Println("count:", count, "elapsed:", elapsed.Milliseconds())
+	fmt.Println("count:", count, "elapsed:", time.Since(start))
 
 	return goview.M{
 		"elapsed":           elapsed.Milliseconds(),
