@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"log"
 	"os"
 	"path"
@@ -64,7 +65,11 @@ func loadOEIS() error {
 	return nil
 }
 
-func loadOEISDesc() error {
+func loadOEISDecExp() error {
+	if len(oeisSeq) == 0 {
+		return errors.New("you must call loadOEIS() first")
+	}
+
 	oeisPath := path.Join(os.Getenv("APP_DATA"), "oeis.org")
 
 	file, err := os.Open(path.Join(oeisPath, "names"))
@@ -89,9 +94,12 @@ func loadOEISDesc() error {
 			continue
 		}
 
-		if strings.Index(strings.ToLower(line), "decimal expansion") == -1 {
+		descIdx := strings.Index(strings.ToLower(line), "decimal expansion of")
+		if descIdx == -1 {
 			continue
 		}
+
+		descIdx += len("decimal expansion of ")
 
 		idx := strings.Index(line, " ")
 		if idx == -1 {
@@ -99,7 +107,25 @@ func loadOEISDesc() error {
 		}
 
 		name := strings.Trim(line[0:idx], " ")
-		desc := strings.Trim(line[idx:], " ")
+
+		// only load decimal expansion entries where all digits are single digit
+		// (<= 9)
+		seq := oeisSeq[name]
+		keep := func(seq []int) bool {
+			for i := range seq {
+				if seq[i] > 9 {
+					return false
+				}
+			}
+			return true
+		}(seq)
+
+		if !keep {
+			continue
+		}
+
+		desc := strings.Trim(line[descIdx:], " ")
+		desc = strings.TrimRight(desc, ".")
 
 		decExpNames[name] = desc
 	}
@@ -124,7 +150,9 @@ func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 	var desc string
 	for id, seq := range oeisSeq {
 
-		// decimal expansion only
+		// decimal expansion only.
+		// TODO: could be optimized to only search sequences
+		// in the decExpNames map but this is fast enough for now
 		if deOnly {
 			// skip if the sequence ID is not in the names map
 			// as of this version, the names map only contains descriptions
@@ -132,8 +160,6 @@ func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 			if desc, ok = decExpNames[id]; !ok {
 				continue
 			}
-
-			desc = strings.ReplaceAll(desc, "Decimal expansion of", "")
 		}
 
 		if pos >= len(seq) {
@@ -143,13 +169,6 @@ func searchOEIS(digits []int, pos int, deOnly bool) ([]oeisData, error) {
 
 		match := true
 		for i := range digits {
-			if deOnly && len(strconv.Itoa(digits[1])) > 1 {
-				// if searching for a decimal expansion, skip sequences that have
-				// entries longer than 1 digit
-				match = false
-				break
-			}
-
 			if pos+i >= len(seq) || seq[pos+i] != digits[i] {
 				match = false
 				break

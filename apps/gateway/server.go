@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -38,7 +38,7 @@ type server struct {
 
 func newServer(cfg config) *server {
 	viewCfg := goview.DefaultConfig
-	viewCfg.Root = path.Join(os.Getenv("APP_DATA"), "views")
+	viewCfg.Root = os.Getenv("APP_VIEWS")
 	viewCfg.DisableCache = true
 
 	viewCfg.Funcs = sprig.FuncMap()
@@ -75,6 +75,10 @@ func (s *server) configure() {
 	}
 
 	if os.Getenv("APP_DATA") == "" {
+		log.Fatal("APP_DATA environment not set")
+	}
+
+	if os.Getenv("APP_VIEWS") == "" {
 		log.Fatal("APP_DATA environment not set")
 	}
 

@@ -55,7 +55,7 @@ func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview
 			log.Fatal("load oeis sequences", err)
 		}
 
-		if err := loadOEISDesc(); err != nil {
+		if err := loadOEISDecExp(); err != nil {
 			log.Fatal("load oeis names", err)
 		}
 	})
