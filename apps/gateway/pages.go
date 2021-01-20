@@ -62,7 +62,7 @@ func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview
 
 	in := r.URL.Query().Get("in")
 	if in == "" {
-		return goview.M{}, nil
+		return goview.M{"decimal_expansion": "checked"}, nil
 	}
 
 	deOnly := false
@@ -116,7 +116,7 @@ func findOEIS(appCtx appContext, w http.ResponseWriter, r *http.Request) (goview
 	fmt.Println("count:", count, "elapsed:", time.Since(start))
 
 	return goview.M{
-		"elapsed":           elapsed.Milliseconds(),
+		"elapsed":           time.Since(start),
 		"count":             count,
 		"pos":               pos,
 		"digits":            digits,
